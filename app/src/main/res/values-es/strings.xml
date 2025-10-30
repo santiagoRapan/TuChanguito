@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">TuCarrito</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="email">Email</string>
+    <string name="password">Contraseña</string>
+    <string name="remember_me">Recordarme</string>
+    <string name="forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="no_account_create">¿No tenes cuenta? Crear cuenta.</string>
+    <string name="home">Inicio</string>
+    <string name="lists">Listas</string>
+    <string name="pantry">Alacenas</string>
+    <string name="profile">Perfil</string>
+    <string name="new_list">Nueva lista</string>
+    <string name="new_product">Nuevo producto</string>
+    <string name="configure_categories">Configurar categorias</string>
+    <string name="pending">pendientes</string>
+    <string name="open">Abrir</string>
+    <string name="total_cost">Costo total</string>
+</resources>

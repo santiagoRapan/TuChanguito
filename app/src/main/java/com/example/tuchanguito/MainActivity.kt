@@ -4,14 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -19,18 +12,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.navigation.compose.rememberNavController
+import com.example.tuchanguito.ui.navigation.AppNavGraph
+import com.example.tuchanguito.ui.navigation.Routes
+import com.example.tuchanguito.ui.navigation.TopLevelDest
 import com.example.tuchanguito.ui.theme.TuChanguitoTheme
+import com.example.tuchanguito.data.PreferencesManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            TuChanguitoTheme {
+            val prefs = PreferencesManager(this)
+            val theme by prefs.theme.collectAsState(initial = "system")
+            TuChanguitoTheme(darkTheme = when(theme){"dark"->true;"light"->false;else->isSystemInDarkTheme()}) {
                 TuChanguitoApp()
             }
         }
@@ -40,55 +40,37 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun TuChanguitoApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    val navController = rememberNavController()
+    var currentDestination by rememberSaveable { mutableStateOf<TopLevelDest?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            listOf(TopLevelDest.Home, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
                 item(
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    icon = { Icon(dest.icon, contentDescription = dest.label) },
+                    label = { Text(dest.label) },
+                    selected = currentDestination?.route == dest.route,
+                    onClick = {
+                        currentDestination = dest
+                        navController.navigate(dest.route) { launchSingleTop = true }
+                    }
                 )
             }
         }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
-        }
+    ) { innerPadding ->
+        val start = Routes.AUTH
+        AppNavGraph(
+            navController = navController,
+            startDestination = start,
+            modifier = androidx.compose.ui.Modifier.padding(innerPadding)
+        )
     }
-}
-
-enum class AppDestinations(
-    val label: String,
-    val icon: ImageVector,
-) {
-    HOME("Home", Icons.Default.Home),
-    FAVORITES("Favorites", Icons.Default.Favorite),
-    PROFILE("Profile", Icons.Default.AccountBox),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     TuChanguitoTheme {
-        Greeting("Android")
+        TuChanguitoApp()
     }
 }

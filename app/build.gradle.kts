@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.ksp)
 }
 
 android {
@@ -12,7 +13,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.tuchanguito"
-        minSdk = 34
+    // RNF6: Support API 29+
+    minSdk = 29
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -39,6 +41,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Base URL configurable from gradle.properties (apiBaseUrl) or defaults to emulator loopback
+    buildTypes {
+        debug {
+            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
+        }
+        release {
+            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
+        }
+    }
 }
 
 dependencies {
@@ -51,6 +63,18 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+    implementation(libs.androidx.navigation.compose)
+    // Room for local persistence
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    // DataStore for preferences (settings, remember-me)
+    implementation(libs.androidx.datastore.preferences)
+    // Networking
+    implementation(libs.retrofit2)
+    implementation(libs.retrofit2.converter.moshi)
+    implementation(libs.okhttp.logging)
+    implementation(libs.moshi.kotlin)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

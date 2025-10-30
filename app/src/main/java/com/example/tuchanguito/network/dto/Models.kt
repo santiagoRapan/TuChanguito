@@ -1,0 +1,53 @@
+package com.example.tuchanguito.network.dto
+
+// DTOs aligned to swagger definitions (simplified)
+
+data class CredentialsDTO(val email: String, val password: String)
+
+data class RegistrationDataDTO(val email: String, val name: String, val surname: String, val password: String, val metadata: Map<String, Any>? = null)
+
+data class AuthenticationTokenDTO(val token: String)
+
+data class VerificationCodeDTO(val code: String)
+
+data class PasswordChangeDTO(val currentPassword: String, val newPassword: String)
+
+data class PasswordRecoveryDTO(val email: String)
+
+data class PasswordResetDTO(val code: String, val password: String)
+
+data class CategoryDTO(val id: Long? = null, val name: String, val metadata: Map<String, Any>? = null)
+
+data class ProductDTO(
+    val id: Long? = null,
+    val name: String,
+    val metadata: Map<String, Any>? = null,
+    val category: CategoryDTO? = null
+)
+
+data class ShoppingListCreateDTO(val name: String, val description: String? = null, val recurring: Boolean? = null, val metadata: Map<String, Any>? = null)
+
+data class ShoppingListDTO(
+    val id: Long,
+    val name: String,
+    val description: String? = null,
+    val recurring: Boolean? = null,
+    val metadata: Map<String, Any>? = null
+)
+
+data class ListItemDTO(
+    val id: Long,
+    val quantity: Double,
+    val unit: String,
+    val purchased: Boolean,
+    val product: ProductDTO
+)
+
+data class ListItemCreateDTO(
+    val product: IdRef,
+    val quantity: Double = 1.0,
+    val unit: String = "kg",
+    val metadata: Map<String, Any>? = null
+)
+
+data class IdRef(val id: Long)

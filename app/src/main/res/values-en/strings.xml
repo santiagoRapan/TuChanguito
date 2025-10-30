@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">TuCarrito</string>
+    <string name="login">Sign in</string>
+    <string name="register">Register</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="remember_me">Remember me</string>
+    <string name="forgot_password">Forgot your password?</string>
+    <string name="no_account_create">Don't have an account? Create one.</string>
+    <string name="home">Home</string>
+    <string name="lists">Lists</string>
+    <string name="pantry">Pantry</string>
+    <string name="profile">Profile</string>
+    <string name="new_list">New list</string>
+    <string name="new_product">New product</string>
+    <string name="configure_categories">Configure categories</string>
+    <string name="pending">pending</string>
+    <string name="open">Open</string>
+    <string name="total_cost">Total cost</string>
+</resources>

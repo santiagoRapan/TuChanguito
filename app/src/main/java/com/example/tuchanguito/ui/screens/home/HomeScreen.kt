@@ -9,12 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.ShoppingList
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.size
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +34,7 @@ fun HomeScreen(
         repo.itemsForList(active.id).collectAsState(initial = emptyList())
     } else remember { mutableStateOf(emptyList()) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("TuCarrito") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name)) }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             ActiveListCard(active, items, onOpenList)
             Spacer(Modifier.height(16.dp))

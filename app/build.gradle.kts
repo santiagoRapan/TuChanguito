@@ -23,12 +23,20 @@ android {
     }
 
     buildTypes {
+        // Combined buildTypes: debug and release (merged duplicate blocks)
+        debug {
+            // Base URL configurable from gradle.properties (apiBaseUrl) or defaults to emulator loopback
+            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Keep the same BASE_URL field for release build as well
+            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
         }
     }
     compileOptions {
@@ -39,17 +47,8 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
-    }
-
-    // Base URL configurable from gradle.properties (apiBaseUrl) or defaults to emulator loopback
-    buildTypes {
-        debug {
-            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
-        }
-        release {
-            buildConfigField("String", "BASE_URL", "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8080"}\"")
-        }
     }
 }
 

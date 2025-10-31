@@ -1,12 +1,12 @@
-<resources>
-    <string name="app_name">TuCarrito</string>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">TuChanguito</string>
     <string name="login">Sign in</string>
     <string name="register">Register</string>
     <string name="email">Email</string>
     <string name="password">Password</string>
     <string name="remember_me">Remember me</string>
     <string name="forgot_password">Forgot your password?</string>
-    <string name="no_account_create">Don't have an account? Create one.</string>
+    <string name="no_account_create">Do not have an account? Create one.</string>
     <string name="home">Home</string>
     <string name="lists">Lists</string>
     <string name="pantry">Pantry</string>

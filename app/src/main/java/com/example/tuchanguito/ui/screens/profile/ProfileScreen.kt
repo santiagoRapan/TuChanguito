@@ -17,8 +17,10 @@ fun ProfileScreen() {
 
     val theme by prefs.theme.collectAsState(initial = "system")
     val currency by prefs.currency.collectAsState(initial = "$")
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Perfil") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("Perfil") }) }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Personalización")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -28,7 +30,26 @@ fun ProfileScreen() {
             }
             OutlinedTextField(value = currency, onValueChange = { scope.launch { prefs.setCurrency(it) } }, label = { Text("Moneda") })
             val contextText = "Cerrar sesión"
-            Button(onClick = { scope.launch { prefs.setAuthToken(null) } }) { Text(contextText) }
+            Button(onClick = { showLogoutDialog = true }) { Text(contextText) }
         }
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Cerrar sesión") },
+            text = { Text("¿Estás seguro que querés cerrar la sesión?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        prefs.setAuthToken(null)
+                        prefs.setCurrentUserId(null)
+                        snackbarHostState.showSnackbar("Sesión cerrada")
+                    }
+                    showLogoutDialog = false
+                }) { Text("Sí") }
+            },
+            dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("No") } }
+        )
     }
 }

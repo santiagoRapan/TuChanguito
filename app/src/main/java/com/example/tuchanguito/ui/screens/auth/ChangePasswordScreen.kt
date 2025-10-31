@@ -26,7 +26,6 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     var step by remember { mutableStateOf(1) } // 1 = verify current, 2 = set new password
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Modificar contraseña") },

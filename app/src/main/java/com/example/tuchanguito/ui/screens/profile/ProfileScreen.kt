@@ -5,10 +5,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.PreferencesManager
 import kotlinx.coroutines.launch
+import android.content.res.Configuration
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,7 +23,6 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val theme by prefs.theme.collectAsState(initial = "system")
-    val currency by prefs.currency.collectAsState(initial = "$")
     val snackbarHostState = remember { SnackbarHostState() }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -38,7 +41,9 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Perfil") }) }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
+        Column(Modifier.fillMaxSize().then(scrollMod).padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Profile info
             Text("Datos de usuario", style = MaterialTheme.typography.titleMedium)
             if (loading) { CircularProgressIndicator() }
@@ -82,7 +87,7 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
                 })
             }
 
-            OutlinedTextField(value = currency, onValueChange = { scope.launch { prefs.setCurrency(it) } }, label = { Text("Moneda") })
+            // Moneda field removed per request
             Spacer(Modifier.height(8.dp))
             val contextText = "Cerrar sesión"
             Button(onClick = { showLogoutDialog = true }) { Text(contextText) }

@@ -16,7 +16,12 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.ShoppingList
+import com.example.tuchanguito.ui.theme.PrimaryTextBlue
+import com.example.tuchanguito.ui.theme.ButtonBlue
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,12 +39,12 @@ fun HomeScreen(
         repo.itemsForList(active.id).collectAsState(initial = emptyList())
     } else remember { mutableStateOf(emptyList()) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name)) }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             ActiveListCard(active, items, onOpenList)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                QuickAction("Nueva lista") { onOpenList(newList(repo)) }
+                QuickAction("Nueva lista") { onOpenList(newList()) }
                 QuickAction("Nuevo producto", onNewProduct)
                 QuickAction("Configurar categorias", onConfigureCategories)
             }
@@ -54,18 +59,18 @@ fun HomeScreen(
 private fun ActiveListCard(active: ShoppingList?, items: List<ListItem>, onOpen: (Long) -> Unit) {
     val acquiredCount = items.count { it.acquired }
     val progress = if (items.isEmpty()) 0f else acquiredCount.toFloat() / items.size.toFloat()
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = ButtonBlue) {
         Column(Modifier.padding(16.dp)) {
             Text(active?.title ?: "Supermercado - Hoy", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)))
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)), color = Color.White, trackColor = Color(0xFF8ECBF5))
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${items.size - acquiredCount} pendientes", color = Color.White)
                 Text("$${total(items)}", color = Color.White)
             }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { if (active != null) onOpen(active.id) }) { Text("Abrir") }
+            Button(onClick = { if (active != null) onOpen(active.id) }, colors = ButtonDefaults.buttonColors(containerColor = ButtonBlue, contentColor = Color.White)) { Text("Abrir") }
         }
     }
 }
@@ -76,15 +81,24 @@ private fun total(items: List<ListItem>): Int = items.sumOf { it.quantity * 100 
 private fun QuickAction(label: String, onClick: () -> Unit) {
     Surface(onClick = onClick, tonalElevation = 1.dp, shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.primaryContainer))
+            Surface(
+                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(26.dp)),
+                color = ButtonBlue,
+                contentColor = Color.White,
+                tonalElevation = 0.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "add", tint = Color.White)
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
-private fun newList(repo: AppRepository): Long {
-    // Create a new list synchronously for demo with runBlocking in real use; here we fake an id 0 and trigger navigation afterwards
-    // For simplicity in Composables we avoid blocking; let Lists screen handle creation. Here we just return -1 to open Lists page
-    return -1
-}
+private fun newList(): Long {
+     // Create a new list synchronously for demo with runBlocking in real use; here we fake an id 0 and trigger navigation afterwards
+     // For simplicity in Composables we avoid blocking; let Lists screen handle creation. Here we just return -1 to open Lists page
+     return -1
+ }

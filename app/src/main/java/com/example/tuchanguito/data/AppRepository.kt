@@ -44,9 +44,23 @@ class AppRepository private constructor(context: Context){
         Result.success(Unit)
     } catch (t: Throwable) { Result.failure(t) }
 
-    suspend fun changePassword(email: String, old: String, new: String): Result<Unit> = try {
+    suspend fun changePassword(old: String, new: String): Result<Unit> = try {
         api.auth.changePassword(com.example.tuchanguito.network.dto.PasswordChangeDTO(currentPassword = old, newPassword = new))
         Result.success(Unit)
+    } catch (t: Throwable) { Result.failure(t) }
+
+    // Profile
+    suspend fun getProfile(): Result<com.example.tuchanguito.network.dto.UserDTO> = try {
+        val user = api.auth.getProfile()
+        // store current user id
+        prefs.setCurrentUserId(user.id)
+        Result.success(user)
+    } catch (t: Throwable) { Result.failure(t) }
+
+    suspend fun updateProfile(name: String?, surname: String?): Result<com.example.tuchanguito.network.dto.UserDTO> = try {
+        val updated = api.auth.updateProfile(com.example.tuchanguito.network.dto.UserUpdateDTO(name = name, surname = surname))
+        prefs.setCurrentUserId(updated.id)
+        Result.success(updated)
     } catch (t: Throwable) { Result.failure(t) }
 
     // Products
@@ -68,6 +82,12 @@ class AppRepository private constructor(context: Context){
     // Pantry
     fun pantry(): Flow<List<PantryItem>> = pantryDao.observeAll()
     suspend fun upsertPantry(item: PantryItem) = pantryDao.upsert(item)
+
+    // Validate Credentials
+    suspend fun validateCredentials(email: String, password: String): Result<Unit> = try {
+        api.auth.login(com.example.tuchanguito.network.dto.CredentialsDTO(email, password))
+        Result.success(Unit)
+    } catch (t: Throwable) { Result.failure(t) }
 
     companion object {
         @Volatile private var INSTANCE: AppRepository? = null

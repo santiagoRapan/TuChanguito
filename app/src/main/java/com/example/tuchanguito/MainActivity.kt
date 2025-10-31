@@ -25,6 +25,8 @@ import com.example.tuchanguito.data.PreferencesManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import com.example.tuchanguito.ui.theme.ButtonBlue
+import androidx.compose.ui.graphics.Color
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,8 +81,8 @@ fun TuChanguitoApp() {
             navigationSuiteItems = {
                 listOf(TopLevelDest.Home, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
                     item(
-                        icon = { Icon(dest.icon, contentDescription = dest.label) },
-                        label = { Text(dest.label) },
+                        icon = { Icon(dest.icon, contentDescription = dest.label, tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
+                        label = { Text(dest.label, color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
                         selected = currentDestination?.route == dest.route,
                         onClick = {
                             currentDestination = dest

@@ -51,3 +51,8 @@ data class ListItemCreateDTO(
 )
 
 data class IdRef(val id: Long)
+
+// User-related DTOs
+data class UserDTO(val id: Long, val name: String, val surname: String?, val email: String?)
+
+data class UserUpdateDTO(val name: String?, val surname: String?)

@@ -33,7 +33,7 @@ fun AppNavGraph(
             ) }
             composable(Routes.REGISTER) { RegisterScreen(onRegistered = { navController.navigate(Routes.VERIFY) }) }
             composable(Routes.VERIFY) { VerifyScreen(onVerified = { navController.navigate(Routes.LOGIN) { popUpTo(Routes.AUTH) { inclusive = false } } }) }
-            composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(onDone = { navController.popBackStack() }) }
+            composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() }) }
         }
 
         composable(TopLevelDest.Home.route) { HomeScreen(
@@ -43,7 +43,7 @@ fun AppNavGraph(
         ) }
         composable(TopLevelDest.Lists.route) { ListsScreen(onOpenList = { id -> navController.navigate("lists/detail/$id") }) }
         composable(TopLevelDest.Pantry.route) { PantryScreen() }
-        composable(TopLevelDest.Profile.route) { ProfileScreen() }
+        composable(TopLevelDest.Profile.route) { ProfileScreen(onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }) }
         composable(Routes.LIST_DETAIL) { backStack ->
             val id = backStack.arguments?.getString("listId")?.toLongOrNull() ?: -1L
             ListDetailScreen(listId = id)

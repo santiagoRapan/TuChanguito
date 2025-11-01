@@ -8,6 +8,9 @@ import com.example.tuchanguito.network.dto.CredentialsDTO
 import com.example.tuchanguito.network.dto.RegistrationDataDTO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /**
  * Simple repository coordinating Room DAOs for the app features.
@@ -22,6 +25,10 @@ class AppRepository private constructor(context: Context){
     private val pantryDao = db.pantryDao()
     private val api = ApiModule(context)
     private val prefs = PreferencesManager(context)
+
+    // In-memory source of truth for lists fetched from API
+    private val _remoteLists = MutableStateFlow<List<ShoppingList>>(emptyList())
+    val remoteLists = _remoteLists.asStateFlow()
 
     // Auth (local)
     suspend fun register(email: String, password: String, displayName: String): Result<Unit> = try {
@@ -70,10 +77,67 @@ class AppRepository private constructor(context: Context){
     suspend fun upsertProduct(product: Product) = productDao.upsert(product)
     suspend fun deleteProduct(product: Product) = productDao.delete(product)
 
-    // Lists
-    fun activeLists(): Flow<List<ShoppingList>> = listDao.observeActive()
+    // Lists (API-backed)
+    fun activeLists(): Flow<List<ShoppingList>> = remoteLists
     fun listById(id: Long): Flow<ShoppingList?> = listDao.observeById(id)
-    suspend fun createList(title: String): Long = listDao.upsert(ShoppingList(title = title))
+    suspend fun loadListIntoLocal(id: Long) {
+        // Fetch remote list and persist into Room so UI detail observes correct title
+        runCatching { api.shopping.getList(id) }
+            .onSuccess { dto -> listDao.upsert(ShoppingList(id = dto.id, title = dto.name)) }
+    }
+
+    suspend fun refreshLists(): Result<Unit> = try {
+        val page = api.shopping.getLists()
+        val lists = page.data.map { ShoppingList(id = it.id, title = it.name) }
+        _remoteLists.value = lists
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        // Keep previous cache and report failure without throwing
+        Result.failure(t)
+    }
+
+    private suspend fun existsListWithName(name: String): Boolean {
+        return try {
+            // Ask API filtering by name and owner=true to check uniqueness on server
+            val page = api.shopping.getLists(name = name, owner = true, page = 1, perPage = 1)
+            page.data.any { it.name.equals(name, ignoreCase = true) }
+        } catch (_: Throwable) { false }
+    }
+
+    suspend fun createList(title: String): Long {
+        // API requires name, description (string) and recurring (boolean)
+        // Prevent 409 UNIQUE constraint by checking server-side duplicates first
+        if (existsListWithName(title)) throw IllegalStateException("Ya existe una lista con ese nombre")
+        val dto = api.shopping.createList(
+            com.example.tuchanguito.network.dto.ShoppingListCreateDTO(
+                name = title,
+                description = "",
+                recurring = false,
+                metadata = emptyMap()
+            )
+        )
+        // Fetch server version to ensure fields are in sync, then update cache
+        val created = runCatching { api.shopping.getList(dto.id) }.getOrNull()
+        val model = if (created != null) ShoppingList(id = created.id, title = created.name) else ShoppingList(id = dto.id, title = dto.name)
+        _remoteLists.update { it + model }
+        // Also persist in Room so ListDetail observes the correct title immediately
+        listDao.upsert(model)
+        return dto.id
+    }
+
+    suspend fun renameList(id: Long, newTitle: String) {
+        if (existsListWithName(newTitle)) throw IllegalStateException("Ya existe una lista con ese nombre")
+        api.shopping.updateList(id, com.example.tuchanguito.network.dto.ShoppingListCreateDTO(name = newTitle))
+        _remoteLists.update { cur -> cur.map { if (it.id == id) it.copy(title = newTitle) else it } }
+        // Keep Room in sync so ListDetail shows the updated title
+        listDao.upsert(ShoppingList(id = id, title = newTitle))
+    }
+
+    suspend fun deleteListRemote(id: Long) {
+        api.shopping.deleteList(id)
+        _remoteLists.update { cur -> cur.filterNot { it.id == id } }
+    }
+
     fun itemsForList(listId: Long): Flow<List<ListItem>> = itemDao.observeForList(listId)
     suspend fun addItem(listId: Long, productId: Long, quantity: Int = 1) = itemDao.upsert(ListItem(listId = listId, productId = productId, quantity = quantity))
     suspend fun updateItem(item: ListItem) = itemDao.update(item)

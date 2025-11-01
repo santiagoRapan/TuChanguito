@@ -5,7 +5,18 @@ import retrofit2.http.*
 
 interface ShoppingService {
     // Lists
-    @GET("api/shopping-lists") suspend fun getLists(): List<ShoppingListDTO>
+    @GET("api/shopping-lists")
+    suspend fun getLists(
+        @Query("name") name: String? = null,
+        @Query("owner") owner: Boolean? = null,
+        @Query("recurring") recurring: Boolean? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+        @Query("sort_by") sortBy: String? = null,
+        @Query("order") order: String? = null,
+    ): PageDTO<ShoppingListDTO>
+
+    @GET("api/shopping-lists/{id}") suspend fun getList(@Path("id") id: Long): ShoppingListDTO
     @POST("api/shopping-lists") suspend fun createList(@Body body: ShoppingListCreateDTO): ShoppingListDTO
     @PUT("api/shopping-lists/{id}") suspend fun updateList(@Path("id") id: Long, @Body body: ShoppingListCreateDTO): ShoppingListDTO
     @DELETE("api/shopping-lists/{id}") suspend fun deleteList(@Path("id") id: Long)

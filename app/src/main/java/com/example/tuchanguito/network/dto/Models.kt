@@ -35,6 +35,20 @@ data class ShoppingListDTO(
     val metadata: Map<String, Any>? = null
 )
 
+data class PageDTO<T>(
+    val data: List<T>,
+    val pagination: PaginationDTO? = null
+)
+
+data class PaginationDTO(
+    val total: Int? = null,
+    val page: Int? = null,
+    val per_page: Int? = null,
+    val total_pages: Int? = null,
+    val has_next: Boolean? = null,
+    val has_prev: Boolean? = null
+)
+
 data class ListItemDTO(
     val id: Long,
     val quantity: Double,

@@ -6,13 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.tuchanguito.data.model.*
 import androidx.sqlite.db.SupportSQLiteDatabase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import androidx.room.migration.Migration
 
 @Database(
     entities = [User::class, Category::class, Product::class, ShoppingList::class, ListItem::class, PantryItem::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,25 +28,18 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "tuchanguito.db"
-            ).addCallback(object: RoomDatabase.Callback() {
+            ).addMigrations(MIGRATION_1_2).addCallback(object: RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
-                    // Seed some demo data using coroutines on IO dispatcher
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val database = get(context)
-                            val catId = database.categoryDao().upsert(Category(name = "Bebidas"))
-                            val snacksId = database.categoryDao().upsert(Category(name = "Snacks"))
-                            database.productDao().upsert(Product(name = "Coca-Cola Zero 2 L", price = 850.0, categoryId = catId))
-                            database.productDao().upsert(Product(name = "Papas Lays 330g", price = 3500.0, categoryId = snacksId))
-                        } catch (e: Exception) {
-                            // swallow exceptions during seeding to avoid crashing on DB create
-                        }
-                    }
+                    // No seed data by default: keep DB empty and let API drive content
                 }
             }).build().also { INSTANCE = it }
         }
 
-        private fun ioThread(block: () -> Unit) = Thread(block).start()
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE products ADD COLUMN unit TEXT NOT NULL DEFAULT ''")
+            }
+        }
     }
 }

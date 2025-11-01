@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
     data object Home: TopLevelDest("home", "Inicio", Icons.Filled.Home)
+    data object Products: TopLevelDest("products", "Productos", Icons.Filled.ShoppingCart)
     data object Lists: TopLevelDest("lists", "Listas", Icons.Filled.List)
     data object Pantry: TopLevelDest("pantry", "Alacenas", Icons.Filled.ShoppingCart)
     data object Profile: TopLevelDest("profile", "Perfil", Icons.Filled.AccountCircle)

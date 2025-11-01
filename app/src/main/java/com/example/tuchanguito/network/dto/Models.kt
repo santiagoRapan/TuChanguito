@@ -25,6 +25,13 @@ data class ProductDTO(
     val category: CategoryDTO? = null
 )
 
+// Used for create/update according to swagger ProductRegistrationData
+data class ProductRegistrationDTO(
+    val name: String,
+    val category: IdRef? = null,
+    val metadata: Map<String, Any>? = null
+)
+
 data class ShoppingListCreateDTO(val name: String, val description: String? = null, val recurring: Boolean? = null, val metadata: Map<String, Any>? = null)
 
 data class ShoppingListDTO(

@@ -126,7 +126,7 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
         // Signed in: show bottom navigation and main graph
         NavigationSuiteScaffold(
             navigationSuiteItems = {
-                listOf(TopLevelDest.Home, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
+                listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
                     item(
                         icon = { Icon(dest.icon, contentDescription = dest.label, tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
                         label = { Text(dest.label, color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },

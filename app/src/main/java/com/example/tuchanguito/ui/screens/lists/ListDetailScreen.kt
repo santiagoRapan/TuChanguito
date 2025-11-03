@@ -163,9 +163,25 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 }
             }
             Text("Costo total: $${total}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
-            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cerrar lista") }
-                Button(onClick = { /* TODO: finalize flow later */ }, modifier = Modifier.weight(1f)) { Text("Finalizar") }
+            // Reserve space at end for the floating action button (approx 72-88dp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 88.dp, bottom = 16.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .heightIn(min = 36.dp)
+                ) { Text("Cerrar lista") }
+                Button(
+                    onClick = { /* TODO: finalize flow later */ },
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .heightIn(min = 36.dp)
+                ) { Text("Finalizar") }
             }
         }
     }

@@ -11,6 +11,7 @@ import com.example.tuchanguito.network.dto.ProductDTO
 import com.example.tuchanguito.network.dto.ProductRegistrationDTO
 import com.example.tuchanguito.network.dto.IdRef
 import com.example.tuchanguito.network.dto.ListItemDTO
+import com.example.tuchanguito.network.dto.PantryItemDTO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -337,7 +338,58 @@ class AppRepository private constructor(context: Context){
 
     // Pantry
     fun pantry(): Flow<List<PantryItem>> = pantryDao.observeAll()
-    suspend fun upsertPantry(item: PantryItem) = pantryDao.upsert(item)
+
+    suspend fun ensureDefaultPantryId(): Long {
+        // Try to get pantries; if none, create one named "Alacena"
+        val page = runCatching { api.pantry.getPantries(owner = true, page = 1, perPage = 1) }.getOrNull()
+        val existing = page?.data?.firstOrNull()
+        if (existing != null) return existing.id
+        val created = api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena"))
+        return created.id
+    }
+
+    suspend fun syncPantry(search: String? = null, categoryId: Long? = null) {
+        val pantryId = ensureDefaultPantryId()
+        val page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000) }.getOrNull()
+        val items = page?.data.orEmpty()
+        // Upsert products/categories and mirror pantry items
+        items.forEach { it ->
+            val p = it.product
+            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+            val unitMeta = (p.metadata?.get("unit") as? String).orEmpty()
+            val catId = p.category?.id
+            p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+            productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unitMeta))
+            pantryDao.upsert(PantryItem(id = it.id, productId = p.id ?: 0L, quantity = it.quantity.toInt()))
+        }
+    }
+
+    suspend fun addPantryItem(productId: Long, quantity: Int, unit: String = "u") {
+        val pantryId = ensureDefaultPantryId()
+        val created = api.pantry.addItem(pantryId, com.example.tuchanguito.network.dto.PantryItemCreateDTO(product = com.example.tuchanguito.network.dto.IdRef(productId), quantity = quantity.toDouble(), unit = unit))
+        // Upsert related product/category then mirror item
+        created.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+        val pPrice = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+        val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
+        productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
+        pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
+    }
+
+    suspend fun updatePantryItem(itemId: Long, quantity: Int, unit: String = "u") {
+        val pantryId = ensureDefaultPantryId()
+        val updated = api.pantry.updateItem(pantryId, itemId, com.example.tuchanguito.network.dto.PantryItemUpdateDTO(quantity = quantity.toDouble(), unit = unit))
+        pantryDao.upsert(PantryItem(id = updated.id, productId = updated.product.id ?: 0L, quantity = updated.quantity.toInt()))
+    }
+
+    suspend fun deletePantryItem(itemId: Long) {
+        val pantryId = ensureDefaultPantryId()
+        runCatching { api.pantry.deleteItem(pantryId, itemId) }
+            .onFailure { throw it }
+        // Clean local row safely by id
+        runCatching { pantryDao.deleteById(itemId) }
+        // Refresh to ensure UI consistent
+        runCatching { syncPantry() }
+    }
 
     // Validate Credentials
     suspend fun validateCredentials(email: String, password: String): Result<Unit> = try {

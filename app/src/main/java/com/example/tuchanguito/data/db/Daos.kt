@@ -82,4 +82,7 @@ interface PantryDao {
 
     @Query("SELECT * FROM pantry_items")
     fun observeAll(): Flow<List<PantryItem>>
+
+    @Query("DELETE FROM pantry_items WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

@@ -47,16 +47,19 @@ fun ProductsScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Productos")
-                        TextButton(onClick = { showCreate = true }) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Nuevo producto") }
-                    }
-                }
+                title = { Text("Productos") },
+                windowInsets = TopAppBarDefaults.windowInsets
             )
-        }, snackbarHost = { SnackbarHost(snack) }
+        },
+        snackbarHost = { SnackbarHost(snack) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showCreate = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Nuevo producto")
+            }
+        },
+        contentWindowInsets = WindowInsets(0)
     ) { padding ->
-        Column(Modifier.fillMaxSize().then(scrollMod).padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Filtros: búsqueda y categoría
             OutlinedTextField(
                 value = query,
@@ -66,7 +69,7 @@ fun ProductsScreen() {
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
                     FilterChip(
                         selected = selectedCategoryId == null,
@@ -91,38 +94,46 @@ fun ProductsScreen() {
                 (selectedCategoryId == null || p.categoryId == selectedCategoryId)
             }
 
-            if (filtered.isEmpty()) {
-                Text("Sin productos", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                filtered.forEach { p ->
-                    ListItem(
-                        headlineContent = { Text(p.name) },
-                        supportingContent = { Text("Precio: ${p.price}") },
-                        trailingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                IconButton(onClick = { editingProductId = p.id }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = "Editar",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        runCatching { repo.deleteProductRemote(p.id) }
-                                            .onFailure { snack.showSnackbar(it.message ?: "No se pudo eliminar") }
+            // Scrollable products list occupying remaining space, with bottom padding for FAB
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp),
+                contentPadding = PaddingValues(bottom = 88.dp)
+            ) {
+                if (filtered.isEmpty()) {
+                    item { Text("Sin productos", style = MaterialTheme.typography.bodyMedium) }
+                } else {
+                    items(filtered.size) { i ->
+                        val p = filtered[i]
+                        ListItem(
+                            headlineContent = { Text(p.name) },
+                            supportingContent = { Text("Precio: ${p.price}") },
+                            trailingContent = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(onClick = { editingProductId = p.id }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Edit,
+                                            contentDescription = "Editar",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "Eliminar",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
+                                    IconButton(onClick = {
+                                        scope.launch {
+                                            runCatching { repo.deleteProductRemote(p.id) }
+                                                .onFailure { snack.showSnackbar(it.message ?: "No se pudo eliminar") }
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = "Eliminar",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    )
-                    Divider()
+                        )
+                        Divider()
+                    }
                 }
             }
         }

@@ -77,3 +77,36 @@ data class IdRef(val id: Long)
 data class UserDTO(val id: Long, val name: String, val surname: String?, val email: String?)
 
 data class UserUpdateDTO(val name: String?, val surname: String?)
+
+// Pantry-related DTOs
+data class PantryDTO(
+    val id: Long,
+    val name: String,
+    val metadata: Map<String, Any>? = null
+)
+
+data class PantryItemDTO(
+    val id: Long,
+    val quantity: Double,
+    val unit: String,
+    val metadata: Map<String, Any>? = null,
+    val product: ProductDTO
+)
+
+data class PantryCreateDTO(
+    val name: String,
+    val metadata: Map<String, Any>? = null
+)
+
+data class PantryItemCreateDTO(
+    val product: IdRef,
+    val quantity: Double,
+    val unit: String,
+    val metadata: Map<String, Any>? = null
+)
+
+data class PantryItemUpdateDTO(
+    val quantity: Double,
+    val unit: String,
+    val metadata: Map<String, Any>? = null
+)

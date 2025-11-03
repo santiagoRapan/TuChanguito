@@ -2,22 +2,226 @@ package com.example.tuchanguito.ui.screens.pantry
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.data.AppRepository
+import com.example.tuchanguito.data.model.Category
+import com.example.tuchanguito.data.model.Product
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantryScreen() {
-    Scaffold(topBar = { TopAppBar(title = { Text("Alacenas") }) }) { innerPadding ->
-        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
-        Column(Modifier.then(scrollMod).padding(innerPadding)) {
-            Text("Gestionar productos en la despensa (RF15 opcional)", modifier = Modifier.padding(16.dp))
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val repo = remember { AppRepository.get(context) }
+    val scope = rememberCoroutineScope()
+
+    val pantryItems by repo.pantry().collectAsState(initial = emptyList())
+    val products by repo.products().collectAsState(initial = emptyList())
+    val categories by repo.categories().collectAsState(initial = emptyList())
+
+    val snack = remember { SnackbarHostState() }
+
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showAdd by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching { repo.syncCatalog() }
+        // Load full pantry inventory once; filters are applied locally in UI
+        runCatching { repo.syncPantry() }
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Alacena") }) },
+        snackbarHost = { SnackbarHost(snack) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
+        }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Buscar") },
+                singleLine = true
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                item {
+                    FilterChip(selected = selectedCategoryId == null, onClick = {
+                        selectedCategoryId = null
+                    }, label = { Text("Todas") })
+                }
+                items(categories.size) { i ->
+                    val c = categories[i]
+                    FilterChip(selected = selectedCategoryId == c.id, onClick = {
+                        selectedCategoryId = c.id
+                    }, label = { Text(c.name) })
+                }
+            }
+
+            Divider()
+
+            val productById = remember(products) { products.associateBy { it.id } }
+            // Apply filters locally using product name/category
+            val filteredPantry = remember(pantryItems, products, query, selectedCategoryId) {
+                pantryItems.filter { pi ->
+                    val p = productById[pi.productId]
+                    val matchesQuery = query.isBlank() || (p?.name?.contains(query, ignoreCase = true) == true)
+                    val matchesCategory = selectedCategoryId == null || p?.categoryId == selectedCategoryId
+                    matchesQuery && matchesCategory
+                }
+            }
+
+            LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 88.dp)) {
+                if (filteredPantry.isEmpty()) {
+                    item { Text("Sin productos en la alacena", style = MaterialTheme.typography.bodyMedium) }
+                } else {
+                    items(filteredPantry.size) { idx ->
+                        val pi = filteredPantry[idx]
+                        val p = productById[pi.productId]
+                        PantryRow(
+                            name = p?.name ?: "Producto",
+                            unit = p?.unit?.ifBlank { "u" } ?: "u",
+                            quantity = pi.quantity,
+                            onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1); runCatching { repo.syncPantry() } } },
+                            onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1); runCatching { repo.syncPantry() } } },
+                            onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
+                        )
+                        Divider()
+                    }
+                }
+            }
         }
     }
+
+    if (showAdd) {
+        val categoryById: Map<Long, Category> = remember(categories) { categories.associateBy { it.id } }
+        AddPantryItemDialog(
+            products = products,
+            categories = categories.map { it.name },
+            categoryNameFor = { pid ->
+                val prod = products.firstOrNull { it.id == pid }
+                prod?.categoryId?.let { cid -> categoryById[cid]?.name }
+            },
+            onDismiss = { showAdd = false },
+            onAdd = { productId, name, price, unit, categoryName ->
+                scope.launch {
+                    val finalProductId = if (productId != null) {
+                        val existing = products.firstOrNull { it.id == productId }
+                        if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
+                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
+                            repo.updateProductRemote(productId, name ?: existing?.name ?: "", price ?: existing?.price ?: 0.0, unit ?: existing?.unit ?: "u", catId)
+                        }
+                        productId
+                    } else {
+                        val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
+                        repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
+                    }
+                    repo.addPantryItem(finalProductId, quantity = 1, unit = unit ?: "u")
+                    runCatching { repo.syncPantry() }
+                    showAdd = false
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddPantryItemDialog(
+    products: List<Product>,
+    categories: List<String>,
+    categoryNameFor: (Long) -> String?,
+    onDismiss: () -> Unit,
+    onAdd: (productId: Long?, name: String?, price: Double?, unit: String?, categoryName: String?) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var priceText by rememberSaveable { mutableStateOf("") }
+    var unit by rememberSaveable { mutableStateOf("u") }
+    var category by rememberSaveable { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    fun prefill(product: Product) {
+        name = product.name
+        priceText = if (product.price != 0.0) product.price.toString() else ""
+        unit = product.unit.ifBlank { "u" }
+        category = categoryNameFor(product.id) ?: ""
+    }
+
+    val suggestions = remember(name, products) {
+        val q = name.trim()
+        if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(8)
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        confirmButton = {
+            TextButton(onClick = {
+                busy = true
+                val price = priceText.toDoubleOrNull()
+                onAdd(selectedId, if (selectedId == null) name else name.takeIf { it.isNotBlank() }, price, unit, category.ifBlank { null })
+                busy = false
+            }, enabled = !busy && (selectedId != null || name.isNotBlank())) { Text("Agregar") }
+        },
+        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text("Cancelar") } },
+        title = { Text("Agregar a la alacena") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { v ->
+                        name = v
+                        val match = products.firstOrNull { it.name.equals(v, ignoreCase = true) }
+                        selectedId = match?.id
+                        if (match != null) prefill(match)
+                    },
+                    label = { Text("Producto") },
+                    singleLine = true
+                )
+                if (suggestions.isNotEmpty()) {
+                    suggestions.forEach { s ->
+                        TextButton(onClick = { selectedId = s.id; prefill(s); name = s.name }) { Text(s.name) }
+                    }
+                }
+                OutlinedTextField(value = priceText, onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text("Precio (opcional)") }, singleLine = true)
+                OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Unidad") }, singleLine = true)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría (opcional)") }, singleLine = true)
+            }
+        }
+    )
+}
+
+@Composable
+private fun PantryRow(
+    name: String,
+    unit: String,
+    quantity: Int,
+    onInc: () -> Unit,
+    onDec: () -> Unit,
+    onDelete: () -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(name) },
+        supportingContent = { Text("$unit x $quantity") },
+        trailingContent = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onDec) { Text("-") }
+                Text(quantity.toString())
+                TextButton(onClick = onInc) { Text("+") }
+                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = null) }
+            }
+        }
+    )
 }

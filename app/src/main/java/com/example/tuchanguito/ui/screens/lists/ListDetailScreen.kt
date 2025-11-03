@@ -75,6 +75,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     }
 
     var showAdd by remember { mutableStateOf(false) }
+    var showFinalize by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -157,7 +158,17 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                     }
                                 }
                             },
-                            onToggleAcquired = { if (local != null) scope.launch { repo.updateItem(local.copy(acquired = !local.acquired)) } }
+                            onToggleAcquired = {
+                                val existingId = local?.id ?: remote?.id
+                                if (existingId != null && existingId > 0) {
+                                    val newPurchased = !(local?.acquired ?: (remote?.purchased ?: false))
+                                    scope.launch {
+                                        runCatching { repo.toggleItemPurchasedRemote(listId, existingId, newPurchased) }
+                                        runCatching { repo.syncListItems(listId) }
+                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -177,7 +188,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         .heightIn(min = 36.dp)
                 ) { Text("Cerrar lista") }
                 Button(
-                    onClick = { /* TODO: finalize flow later */ },
+                    onClick = { showFinalize = true },
                     modifier = Modifier
                         .weight(0.45f)
                         .heightIn(min = 36.dp)
@@ -224,6 +235,27 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 val prod = products.firstOrNull { it.id == pid }
                 prod?.categoryId?.let { cid -> categoryById[cid]?.name }
             }
+        )
+    }
+
+    // --- Finalize dialog state and UI ---
+    var finalizing by remember { mutableStateOf(false) }
+
+    // Replace Finalizar button onClick to open dialog
+    LaunchedEffect(Unit) {
+        // no-op placeholder to satisfy tool insertion constraints
+    }
+
+    if (showFinalize) {
+        FinalizeDialog(
+            listId = listId,
+            itemsProvider = {
+                // Always fetch a fresh snapshot from server to ensure accurate purchased flags
+                runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(remoteItems)
+            },
+            repo = repo,
+            onDismiss = { if (!finalizing) showFinalize = false },
+            onDone = { showFinalize = false; onClose() }
         )
     }
 }
@@ -340,6 +372,147 @@ private fun AddItemDialog(
                     label = { Text("Categoría (opcional)") },
                     singleLine = true
                 )
+            }
+        }
+    )
+}
+
+// --- New: Finalize dialog ---
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FinalizeDialog(
+    listId: Long,
+    itemsProvider: suspend () -> List<ListItemDTO>,
+    repo: AppRepository,
+    onDismiss: () -> Unit,
+    onDone: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var includePurchasedToPantry by remember { mutableStateOf(true) }
+    var moveNotPurchased by remember { mutableStateOf(true) }
+
+    // Load lists to select or allow creation
+    val lists by repo.activeLists().collectAsState(initial = emptyList())
+    var creatingNew by remember { mutableStateOf(false) }
+    var newListName by remember { mutableStateOf("") }
+    var selectedListId by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(Unit) { repo.refreshLists() }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        confirmButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        val items = itemsProvider()
+                        val purchased = items.filter { it.purchased }
+                        val notPurchased = items.filterNot { it.purchased }
+
+                        // 1) Add purchased to pantry
+                        if (includePurchasedToPantry && purchased.isNotEmpty()) {
+                            for (it in purchased) {
+                                runCatching {
+                                    repo.addOrIncrementPantryItem(
+                                        productId = it.product.id ?: return@runCatching,
+                                        addQuantity = it.quantity.toInt(),
+                                        unit = it.unit
+                                    )
+                                }
+                            }
+                            // Sync pantry in background (optional)
+                            runCatching { repo.syncPantry() }
+                        }
+
+                        // 2) Move not purchased to another list
+                        if (moveNotPurchased && notPurchased.isNotEmpty()) {
+                            val targetId = if (creatingNew) {
+                                val name = newListName.trim()
+                                if (name.isEmpty()) null else runCatching { repo.createList(name) }.getOrNull()
+                            } else selectedListId
+
+                            if (targetId != null) {
+                                for (it in notPurchased) {
+                                    runCatching {
+                                        repo.addItemRemote(
+                                            listId = targetId,
+                                            productId = it.product.id ?: return@runCatching,
+                                            quantity = it.quantity.toInt(),
+                                            unit = it.unit
+                                        )
+                                    }
+                                }
+                                // Refresh destination list items (optional)
+                                runCatching { repo.syncListItems(targetId) }
+                            }
+                        }
+
+                        // 3) Delete this list so it no longer appears in the lists screen
+                        runCatching { repo.deleteListRemote(listId) }
+                        runCatching { repo.refreshLists() }
+
+                        busy = false
+                        onDone()
+                    }
+                }
+            ) { Text(if (busy) "Procesando..." else "Finalizar") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancelar") } },
+        title = { Text("Finalizar lista") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Qué deseas hacer al finalizar?")
+                // Purchased -> Pantry
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(checked = includePurchasedToPantry, onCheckedChange = { includePurchasedToPantry = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text("Agregar productos comprados a la alacena")
+                }
+                // Not purchased -> another list
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(checked = moveNotPurchased, onCheckedChange = { moveNotPurchased = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text("Mover productos no comprados a otra lista")
+                }
+                if (moveNotPurchased) {
+                    // Selector: existing vs create new
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip(onClick = { creatingNew = false }, label = { Text("Seleccionar lista") }, leadingIcon = {})
+                        AssistChip(onClick = { creatingNew = true }, label = { Text("Crear nueva") }, leadingIcon = {})
+                    }
+                    if (creatingNew) {
+                        OutlinedTextField(
+                            value = newListName,
+                            onValueChange = { newListName = it },
+                            label = { Text("Nombre de la nueva lista") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        // Simple dropdown using a list of buttons
+                        Column {
+                            Text("Selecciona una lista destino:")
+                            val options = lists.filter { it.id != listId }
+                            if (options.isEmpty()) {
+                                Text("No hay listas disponibles")
+                            } else {
+                                options.forEach { l ->
+                                    val selected = selectedListId == l.id
+                                    androidx.compose.material3.ListItem(
+                                        headlineContent = { Text(l.title) },
+                                        trailingContent = {
+                                            RadioButton(selected = selected, onClick = { selectedListId = l.id })
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     )

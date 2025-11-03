@@ -329,6 +329,17 @@ class AppRepository private constructor(context: Context){
         itemDao.delete(local)
     }
 
+    suspend fun toggleItemPurchasedRemote(listId: Long, itemId: Long, purchased: Boolean) {
+        val updated = api.shoppingPatch.togglePurchased(listId, itemId, mapOf("purchased" to purchased))
+        // Mirror updated state into Room
+        val pId = updated.product.id ?: 0L
+        val price = (updated.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+        val unit = (updated.product.metadata?.get("unit") as? String).orEmpty()
+        updated.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+        productDao.upsert(Product(id = pId, name = updated.product.name, price = price, categoryId = updated.product.category?.id, unit = unit))
+        itemDao.upsert(ListItem(id = updated.id, listId = listId, productId = pId, quantity = updated.quantity.toInt(), acquired = updated.purchased))
+    }
+
     suspend fun deleteItemByIdLocal(id: Long) = itemDao.deleteById(id)
 
     // Local-only fallbacks preserved
@@ -373,6 +384,19 @@ class AppRepository private constructor(context: Context){
         val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
         productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
         pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
+    }
+
+    // Add-or-increment pantry item if a row for the same product already exists
+    suspend fun addOrIncrementPantryItem(productId: Long, addQuantity: Int, unit: String = "u") {
+        // First ensure we have current pantry snapshot locally
+        runCatching { syncPantry() }
+        val existing = pantryDao.findByProduct(productId)
+        if (existing != null) {
+            // Update quantity via API using existing item id
+            updatePantryItem(existing.id, existing.quantity + addQuantity, unit)
+        } else {
+            addPantryItem(productId, addQuantity, unit)
+        }
     }
 
     suspend fun updatePantryItem(itemId: Long, quantity: Int, unit: String = "u") {

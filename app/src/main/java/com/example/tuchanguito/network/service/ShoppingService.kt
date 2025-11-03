@@ -23,6 +23,10 @@ interface ShoppingService {
 
     // Items
     @GET("api/shopping-lists/{id}/items") suspend fun getItems(@Path("id") listId: Long): List<ListItemDTO>
+
+    // Fallback: some servers may wrap the array in an object with `data`
+    @GET("api/shopping-lists/{id}/items") suspend fun getItemsPage(@Path("id") listId: Long): PageDTO<ListItemDTO>
+
     @POST("api/shopping-lists/{id}/items") suspend fun addItem(@Path("id") listId: Long, @Body body: ListItemCreateDTO): ListItemDTO
     @PUT("api/shopping-lists/{id}/items/{item_id}") suspend fun updateItem(@Path("id") listId: Long, @Path("item_id") itemId: Long, @Body body: ListItemCreateDTO): ListItemDTO
     @DELETE("api/shopping-lists/{id}/items/{item_id}") suspend fun deleteItem(@Path("id") listId: Long, @Path("item_id") itemId: Long)

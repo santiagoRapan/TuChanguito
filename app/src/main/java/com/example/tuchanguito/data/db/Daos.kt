@@ -68,6 +68,9 @@ interface ListItemDao {
     @Delete
     suspend fun delete(item: ListItem)
 
+    @Query("DELETE FROM list_items WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("SELECT * FROM list_items WHERE listId = :listId")
     fun observeForList(listId: Long): Flow<List<ListItem>>
 }

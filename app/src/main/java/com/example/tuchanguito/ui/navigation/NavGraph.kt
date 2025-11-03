@@ -46,7 +46,7 @@ fun AppNavGraph(
         composable(TopLevelDest.Profile.route) { ProfileScreen(onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }) }
         composable(Routes.LIST_DETAIL) { backStack ->
             val id = backStack.arguments?.getString("listId")?.toLongOrNull() ?: -1L
-            ListDetailScreen(listId = id)
+            ListDetailScreen(listId = id, onClose = { navController.popBackStack() })
         }
         composable(Routes.PRODUCTS) { ProductsScreen() }
         composable(Routes.CATEGORIES) { CategoriesScreen() }

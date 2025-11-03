@@ -11,25 +11,70 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.ListItem
+import com.example.tuchanguito.data.model.Product
+import com.example.tuchanguito.network.dto.ListItemDTO
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.KeyboardOptions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ListDetailScreen(listId: Long) {
+fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val context = LocalContext.current
     val repo = remember { AppRepository.get(context) }
     val list by repo.listById(listId).collectAsState(initial = null)
     val items by repo.itemsForList(listId).collectAsState(initial = emptyList())
     val products by repo.products().collectAsState(initial = emptyList())
+    val categories by repo.categories().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
 
-    val total = items.sumOf { item ->
-        val price = products.firstOrNull { it.id == item.productId }?.price ?: 0.0
-        (price * item.quantity).toInt()
+    // Initial sync from backend so detail shows server data
+    LaunchedEffect(listId) {
+        repo.loadListIntoLocal(listId)
+        runCatching { repo.syncCatalog() }
+        runCatching { repo.syncListItems(listId) }
     }
+
+    // Remote-backed fallback for items
+    var remoteItems by remember { mutableStateOf<List<ListItemDTO>>(emptyList()) }
+
+    LaunchedEffect(listId) {
+        repo.loadListIntoLocal(listId)
+        runCatching { repo.syncCatalog() }
+        runCatching { repo.syncListItems(listId) }
+        // Also keep a remote snapshot to display immediately
+        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+    }
+
+    // Keep remote snapshot fresh when local items change (e.g., after add)
+    LaunchedEffect(items.size) {
+        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+    }
+
+    // Helper maps
+    val productById = remember(products) { products.associateBy { it.id } }
+    val remoteByProductId = remember(remoteItems) { remoteItems.associateBy { it.product.id ?: -1L } }
+    val categoryById = remember(categories) { categories.associateBy { it.id } }
+
+    // Choose source for UI
+    val uiProducts: List<Long> = remember(items, remoteItems) {
+        if (items.isNotEmpty()) items.map { it.productId } else remoteItems.map { it.product.id ?: -1L }
+    }
+
+    val total = remember(uiProducts, products, items, remoteItems) {
+        uiProducts.sumOf { pid ->
+            val qty = items.firstOrNull { it.productId == pid }?.quantity
+                ?: remoteByProductId[pid]?.quantity?.toInt()
+                ?: 0
+            val price = productById[pid]?.price ?: 0.0
+            (price * qty).toInt()
+        }
+    }
+
+    var showAdd by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -52,27 +97,118 @@ fun ListDetailScreen(listId: Long) {
             })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                // Add the first product to simplify demo
-                scope.launch { products.firstOrNull()?.let { repo.addItem(listId, it.id, 1) } }
-            }) { Icon(Icons.Default.Add, contentDescription = null) }
+            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            val grouped = remember(uiProducts, products) {
+                uiProducts.groupBy { pid -> productById[pid]?.categoryId }
+            }
             LazyColumn(Modifier.weight(1f)) {
-                items(items, key = { it.id }) { item ->
-                    val product = products.firstOrNull { it.id == item.productId }
-                    ListRow(productName = product?.name ?: "Producto", price = product?.price ?: 0.0, item = item,
-                        onInc = { scope.launch { repo.updateItem(item.copy(quantity = item.quantity + 1)) } },
-                        onDec = { scope.launch { if (item.quantity > 1) repo.updateItem(item.copy(quantity = item.quantity - 1)) } },
-                        onDelete = { scope.launch { repo.removeItem(item) } },
-                        onToggleAcquired = { scope.launch { repo.updateItem(item.copy(acquired = !item.acquired)) } }
-                    )
+                grouped.forEach { (catId, pids) ->
+                    val catName = categories.firstOrNull { it.id == catId }?.name ?: "Sin categoría"
+                    item(key = "header-$catId") { Text(catName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                    items(pids, key = { it }) { pid ->
+                        val product = productById[pid]
+                        val local = items.firstOrNull { it.productId == pid }
+                        val remote = remoteByProductId[pid]
+                        val qty = local?.quantity ?: remote?.quantity?.toInt() ?: 0
+                        val itemForRow = local ?: ListItem(
+                            id = remote?.id ?: 0L,
+                            listId = listId,
+                            productId = pid,
+                            quantity = qty,
+                            acquired = false
+                        )
+                        val unit = product?.unit?.ifBlank { remote?.unit ?: "u" } ?: (remote?.unit ?: "u")
+                        ListRow(
+                            productName = product?.name ?: remote?.product?.name ?: "Producto",
+                            price = product?.price ?: 0.0,
+                            unit = unit,
+                            item = itemForRow,
+                            onInc = {
+                                val existingId = local?.id ?: remote?.id
+                                if (existingId != null && existingId > 0) {
+                                    scope.launch { repo.updateItemQuantityRemote(listId, existingId, pid, qty + 1, unit) }
+                                } else {
+                                    scope.launch {
+                                        repo.addItemRemote(listId, pid, qty + 1, unit)
+                                        repo.syncListItems(listId)
+                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                    }
+                                }
+                            },
+                            onDec = {
+                                if (qty > 1) {
+                                    val existingId = local?.id ?: remote?.id
+                                    if (existingId != null && existingId > 0) {
+                                        scope.launch { repo.updateItemQuantityRemote(listId, existingId, pid, qty - 1, unit) }
+                                    }
+                                }
+                            },
+                            onDelete = {
+                                val existingId = local?.id ?: remote?.id
+                                if (existingId != null && existingId > 0) {
+                                    scope.launch {
+                                        if (local != null) repo.deleteItemRemote(listId, existingId, local) else runCatching { repo.deleteItemRemote(listId, existingId, ListItem(id = existingId, listId = listId, productId = pid, quantity = qty)) }
+                                        runCatching { repo.deleteItemByIdLocal(existingId) }
+                                        runCatching { repo.syncListItems(listId) }
+                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                    }
+                                }
+                            },
+                            onToggleAcquired = { if (local != null) scope.launch { repo.updateItem(local.copy(acquired = !local.acquired)) } }
+                        )
+                    }
                 }
             }
             Text("Costo total: $${total}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
-            Button(onClick = { /* finalize */ }, modifier = Modifier.padding(16.dp)) { Text("Finalizar") }
+            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("Cerrar lista") }
+                Button(onClick = { /* TODO: finalize flow later */ }, modifier = Modifier.weight(1f)) { Text("Finalizar") }
+            }
         }
+    }
+
+    if (showAdd) {
+        AddItemDialog(
+            products = products,
+            onDismiss = { showAdd = false },
+            onAdd = { productId, name, price, unit, categoryName ->
+                scope.launch {
+                    val chosenProductId = if (productId != null) {
+                        // If selecting existing, pre-fill was shown; optionally update product only if we actually add
+                        if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
+                            // If user edited fields, propagate to backend to keep catalog consistente
+                            val existing = products.firstOrNull { it.id == productId }
+                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
+                            repo.updateProductRemote(
+                                id = productId,
+                                name = name ?: existing?.name ?: "",
+                                price = price ?: existing?.price ?: 0.0,
+                                unit = unit ?: existing?.unit ?: "u",
+                                categoryId = catId
+                            )
+                        }
+                        productId
+                    } else {
+                        val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
+                        repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
+                    }
+                    val safeUnitForItem = unit?.ifBlank { products.firstOrNull { it.id == chosenProductId }?.unit ?: "u" } ?: (products.firstOrNull { it.id == chosenProductId }?.unit ?: "u")
+                    runCatching { repo.addItemRemote(listId, chosenProductId, 1, safeUnitForItem) }
+                    runCatching { repo.syncListItems(listId) }
+                    // Refresh remote snapshot for immediate UI
+                    remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                    showAdd = false
+                }
+            },
+            onPrefillFor = { pid -> products.firstOrNull { it.id == pid } },
+            categoryNameFor = { pid ->
+                val prod = products.firstOrNull { it.id == pid }
+                prod?.categoryId?.let { cid -> categoryById[cid]?.name }
+            }
+        )
     }
 }
 
@@ -80,6 +216,7 @@ fun ListDetailScreen(listId: Long) {
 private fun ListRow(
     productName: String,
     price: Double,
+    unit: String,
     item: ListItem,
     onInc: () -> Unit,
     onDec: () -> Unit,
@@ -91,7 +228,7 @@ private fun ListRow(
             Checkbox(checked = item.acquired, onCheckedChange = { onToggleAcquired() })
         },
         headlineContent = { Text(productName) },
-        supportingContent = { Text("$${price}") },
+        supportingContent = { Text("$${price} · $unit x ${item.quantity}") },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDec) { Text("-") }
@@ -103,4 +240,91 @@ private fun ListRow(
         modifier = Modifier.fillMaxWidth()
     )
     Divider()
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddItemDialog(
+    products: List<Product>,
+    onDismiss: () -> Unit,
+    onAdd: (productId: Long?, name: String?, price: Double?, unit: String?, categoryName: String?) -> Unit,
+    onPrefillFor: (Long) -> Product?,
+    categoryNameFor: (Long) -> String?
+) {
+    var name by remember { mutableStateOf("") }
+    var selectedId by remember { mutableStateOf<Long?>(null) }
+    var priceText by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("u") }
+    var category by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    fun prefillFrom(product: Product) {
+        name = product.name
+        priceText = if (product.price != 0.0) product.price.toString() else ""
+        unit = product.unit.ifBlank { "u" }
+        category = categoryNameFor(product.id) ?: ""
+    }
+
+    val suggestions = remember(name, products) {
+        val q = name.trim()
+        if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(8)
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        confirmButton = {
+            TextButton(onClick = {
+                busy = true
+                val p = selectedId
+                val price = priceText.toDoubleOrNull()
+                onAdd(p, if (p == null) name else name.takeIf { it.isNotBlank() && it != (onPrefillFor(p)?.name ?: "") }, price, unit, category.ifBlank { null })
+                busy = false
+            }, enabled = !busy && (selectedId != null || name.trim().isNotBlank())) { Text("Agregar") }
+        },
+        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text("Cancelar") } },
+        title = { Text("Agregar producto a la lista") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { v ->
+                        name = v
+                        val matched = products.firstOrNull { it.name.equals(v, ignoreCase = true) }
+                        selectedId = matched?.id
+                        if (matched != null) prefillFrom(matched)
+                    },
+                    label = { Text("Producto") },
+                    singleLine = true
+                )
+                if (suggestions.isNotEmpty()) {
+                    suggestions.forEach { s ->
+                        TextButton(onClick = {
+                            selectedId = s.id
+                            prefillFrom(s)
+                            name = s.name
+                        }) { Text(s.name) }
+                    }
+                }
+                OutlinedTextField(
+                    value = priceText,
+                    onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text("Precio (opcional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text("Unidad") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Categoría (opcional)") },
+                    singleLine = true
+                )
+            }
+        }
+    )
 }

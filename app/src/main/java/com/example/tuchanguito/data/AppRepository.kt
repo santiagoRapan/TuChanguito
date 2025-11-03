@@ -10,6 +10,7 @@ import com.example.tuchanguito.network.dto.CategoryDTO
 import com.example.tuchanguito.network.dto.ProductDTO
 import com.example.tuchanguito.network.dto.ProductRegistrationDTO
 import com.example.tuchanguito.network.dto.IdRef
+import com.example.tuchanguito.network.dto.ListItemDTO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -233,6 +234,103 @@ class AppRepository private constructor(context: Context){
     }
 
     fun itemsForList(listId: Long): Flow<List<ListItem>> = itemDao.observeForList(listId)
+
+    private suspend fun fetchListItemsEither(listId: Long): List<ListItemDTO> {
+        // Try plain array first
+        return runCatching { api.shopping.getItems(listId) }.getOrElse {
+            // Fallback to page-wrapped structure
+            runCatching { api.shopping.getItemsPage(listId).data }.getOrElse { emptyList() }
+        }
+    }
+
+    suspend fun fetchListItemsRemote(listId: Long): List<ListItemDTO> = fetchListItemsEither(listId)
+
+    // --- New: API-backed list item operations ---
+    suspend fun syncListItems(listId: Long) {
+        // Ensure list exists locally (FK for list_items)
+        runCatching { api.shopping.getList(listId) }.onSuccess { dto ->
+            listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
+        }
+        val remoteItems = fetchListItemsEither(listId)
+        // Ensure products/categories exist locally
+        remoteItems.forEach { li ->
+            val p = li.product
+            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+            val unit = (p.metadata?.get("unit") as? String).orEmpty()
+            val catId = p.category?.id
+            // Upsert category if present
+            p.category?.let { categoryDto ->
+                categoryDao.upsert(Category(id = categoryDto.id ?: 0L, name = categoryDto.name))
+            }
+            productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unit))
+            // Upsert list item using server id
+            itemDao.upsert(
+                ListItem(
+                    id = li.id,
+                    listId = listId,
+                    productId = p.id ?: 0L,
+                    quantity = li.quantity.toInt(),
+                    acquired = li.purchased
+                )
+            )
+        }
+    }
+
+    suspend fun addItemRemote(listId: Long, productId: Long, quantity: Int = 1, unit: String = "u"): Long {
+        val created = api.shopping.addItem(listId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = quantity.toDouble(), unit = unit))
+        // Ensure ShoppingList exists locally
+        runCatching { api.shopping.getList(listId) }.onSuccess { dto ->
+            listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
+        }
+        // Ensure product & category exist locally before inserting item (FK constraints)
+        created.product.category?.let { catDto ->
+            categoryDao.upsert(Category(id = catDto.id ?: 0L, name = catDto.name))
+        }
+        val price = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+        val unitMeta = (created.product.metadata?.get("unit") as? String).orEmpty()
+        productDao.upsert(
+            Product(
+                id = created.product.id ?: productId,
+                name = created.product.name,
+                price = price,
+                categoryId = created.product.category?.id,
+                unit = unitMeta
+            )
+        )
+        // Mirror item into Room
+        itemDao.upsert(
+            ListItem(
+                id = created.id,
+                listId = listId,
+                productId = created.product.id ?: productId,
+                quantity = created.quantity.toInt(),
+                acquired = created.purchased
+            )
+        )
+        return created.id
+    }
+
+    suspend fun updateItemQuantityRemote(listId: Long, itemId: Long, productId: Long, newQuantity: Int, unit: String = "u") {
+        val updated = api.shopping.updateItem(listId, itemId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = newQuantity.toDouble(), unit = unit))
+        itemDao.upsert(
+            ListItem(
+                id = updated.id,
+                listId = listId,
+                productId = updated.product.id ?: productId,
+                quantity = updated.quantity.toInt(),
+                acquired = updated.purchased
+            )
+        )
+    }
+
+    suspend fun deleteItemRemote(listId: Long, itemId: Long, local: ListItem) {
+        api.shopping.deleteItem(listId, itemId)
+        itemDao.delete(local)
+    }
+
+    suspend fun deleteItemByIdLocal(id: Long) = itemDao.deleteById(id)
+
+    // Local-only fallbacks preserved
     suspend fun addItem(listId: Long, productId: Long, quantity: Int = 1) = itemDao.upsert(ListItem(listId = listId, productId = productId, quantity = quantity))
     suspend fun updateItem(item: ListItem) = itemDao.update(item)
     suspend fun removeItem(item: ListItem) = itemDao.delete(item)

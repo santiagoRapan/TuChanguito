@@ -2,6 +2,7 @@ package com.example.tuchanguito.network.service
 
 import com.example.tuchanguito.network.dto.*
 import retrofit2.http.*
+import retrofit2.Response
 
 interface ShoppingService {
     // Lists
@@ -27,7 +28,7 @@ interface ShoppingService {
     // Fallback: some servers may wrap the array in an object with `data`
     @GET("api/shopping-lists/{id}/items") suspend fun getItemsPage(@Path("id") listId: Long): PageDTO<ListItemDTO>
 
-    @POST("api/shopping-lists/{id}/items") suspend fun addItem(@Path("id") listId: Long, @Body body: ListItemCreateDTO): ListItemDTO
+    @POST("api/shopping-lists/{id}/items") suspend fun addItem(@Path("id") listId: Long, @Body body: ListItemCreateDTO): Response<Unit>
     @PUT("api/shopping-lists/{id}/items/{item_id}") suspend fun updateItem(@Path("id") listId: Long, @Path("item_id") itemId: Long, @Body body: ListItemCreateDTO): ListItemDTO
     @DELETE("api/shopping-lists/{id}/items/{item_id}") suspend fun deleteItem(@Path("id") listId: Long, @Path("item_id") itemId: Long)
 }

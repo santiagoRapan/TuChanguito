@@ -26,31 +26,21 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val context = LocalContext.current
     val repo = remember { AppRepository.get(context) }
     val list by repo.listById(listId).collectAsState(initial = null)
-    val items by repo.itemsForList(listId).collectAsState(initial = emptyList())
+    val listItems by repo.itemsForList(listId).collectAsState(initial = emptyList())
     val products by repo.products().collectAsState(initial = emptyList())
     val categories by repo.categories().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
+    val snack = remember { SnackbarHostState() }
+
+    // Remote-backed fallback for items
+    var remoteItems by remember { mutableStateOf<List<ListItemDTO>>(emptyList()) }
 
     // Initial sync from backend so detail shows server data
     LaunchedEffect(listId) {
         repo.loadListIntoLocal(listId)
         runCatching { repo.syncCatalog() }
         runCatching { repo.syncListItems(listId) }
-    }
-
-    // Remote-backed fallback for items
-    var remoteItems by remember { mutableStateOf<List<ListItemDTO>>(emptyList()) }
-
-    LaunchedEffect(listId) {
-        repo.loadListIntoLocal(listId)
-        runCatching { repo.syncCatalog() }
-        runCatching { repo.syncListItems(listId) }
-        // Also keep a remote snapshot to display immediately
-        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
-    }
-
-    // Keep remote snapshot fresh when local items change (e.g., after add)
-    LaunchedEffect(items.size) {
+        // Keep a remote snapshot once for fallback rendering
         remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
     }
 
@@ -60,13 +50,13 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val categoryById = remember(categories) { categories.associateBy { it.id } }
 
     // Choose source for UI
-    val uiProducts: List<Long> = remember(items, remoteItems) {
-        if (items.isNotEmpty()) items.map { it.productId } else remoteItems.map { it.product.id ?: -1L }
+    val uiProducts: List<Long> = remember(listItems, remoteItems) {
+        if (listItems.isNotEmpty()) listItems.map { it.productId } else remoteItems.map { it.product.id ?: -1L }
     }
 
-    val total = remember(uiProducts, products, items, remoteItems) {
+    val total = remember(uiProducts, products, listItems, remoteItems) {
         uiProducts.sumOf { pid ->
-            val qty = items.firstOrNull { it.productId == pid }?.quantity
+            val qty = listItems.firstOrNull { it.productId == pid }?.quantity
                 ?: remoteByProductId[pid]?.quantity?.toInt()
                 ?: 0
             val price = productById[pid]?.price ?: 0.0
@@ -85,33 +75,41 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     val body = buildString {
                         appendLine(list?.title ?: "Lista")
                         appendLine()
-                        items.forEach { li ->
+                        listItems.forEach { li ->
                             val prod = products.firstOrNull { it.id == li.productId }
                             appendLine("- ${prod?.name ?: "Producto"} x${li.quantity}")
                         }
                         appendLine()
-                        append("Total: $${total}")
+                        append("Total: \$${total}")
                     }
                     val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }
                     context.startActivity(Intent.createChooser(send, "Compartir lista"))
                 }) { Text("↗") }
             })
         },
+        snackbarHost = { SnackbarHost(hostState = snack) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            val grouped = remember(uiProducts, products) {
-                uiProducts.groupBy { pid -> productById[pid]?.categoryId }
+            // Group by local categoryId, falling back to remote product.category.id
+            val grouped = remember(uiProducts, products, remoteItems) {
+                uiProducts.groupBy { pid ->
+                    productById[pid]?.categoryId ?: remoteByProductId[pid]?.product?.category?.id
+                }
             }
             LazyColumn(Modifier.weight(1f)) {
                 grouped.forEach { (catId, pids) ->
-                    val catName = categories.firstOrNull { it.id == catId }?.name ?: "Sin categoría"
+                    val catName = categories.firstOrNull { it.id == catId }?.name
+                        ?: pids.firstOrNull()?.let { firstPid ->
+                            remoteByProductId[firstPid]?.product?.category?.name
+                        }
+                        ?: "Sin categoría"
                     item(key = "header-$catId") { Text(catName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
                     items(pids, key = { it }) { pid ->
                         val product = productById[pid]
-                        val local = items.firstOrNull { it.productId == pid }
+                        val local = listItems.firstOrNull { it.productId == pid }
                         val remote = remoteByProductId[pid]
                         val qty = local?.quantity ?: remote?.quantity?.toInt() ?: 0
                         val itemForRow = local ?: ListItem(
@@ -119,7 +117,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             listId = listId,
                             productId = pid,
                             quantity = qty,
-                            acquired = false
+                            acquired = remote?.purchased ?: false
                         )
                         val unit = product?.unit?.ifBlank { remote?.unit ?: "u" } ?: (remote?.unit ?: "u")
                         ListRow(
@@ -129,13 +127,17 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             item = itemForRow,
                             onInc = {
                                 val existingId = local?.id ?: remote?.id
-                                if (existingId != null && existingId > 0) {
-                                    scope.launch { repo.updateItemQuantityRemote(listId, existingId, pid, qty + 1, unit) }
-                                } else {
-                                    scope.launch {
-                                        repo.addItemRemote(listId, pid, qty + 1, unit)
-                                        repo.syncListItems(listId)
+                                scope.launch {
+                                    try {
+                                        if (existingId != null && existingId > 0) {
+                                            repo.updateItemQuantityRemote(listId, existingId, pid, qty + 1, unit)
+                                        } else {
+                                            repo.addItemRemote(listId, pid, (qty + 1).coerceAtLeast(1), unit)
+                                        }
+                                        // Fetch a single fresh snapshot for remote fallback
                                         remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                    } catch (t: Throwable) {
+                                        snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
                                     }
                                 }
                             },
@@ -143,7 +145,14 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                 if (qty > 1) {
                                     val existingId = local?.id ?: remote?.id
                                     if (existingId != null && existingId > 0) {
-                                        scope.launch { repo.updateItemQuantityRemote(listId, existingId, pid, qty - 1, unit) }
+                                        scope.launch {
+                                            try {
+                                                repo.updateItemQuantityRemote(listId, existingId, pid, qty - 1, unit)
+                                                remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                            } catch (t: Throwable) {
+                                                snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -151,10 +160,13 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                 val existingId = local?.id ?: remote?.id
                                 if (existingId != null && existingId > 0) {
                                     scope.launch {
-                                        if (local != null) repo.deleteItemRemote(listId, existingId, local) else runCatching { repo.deleteItemRemote(listId, existingId, ListItem(id = existingId, listId = listId, productId = pid, quantity = qty)) }
-                                        runCatching { repo.deleteItemByIdLocal(existingId) }
-                                        runCatching { repo.syncListItems(listId) }
-                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                        try {
+                                            if (local != null) repo.deleteItemRemote(listId, existingId, local) else runCatching { repo.deleteItemRemote(listId, existingId, ListItem(id = existingId, listId = listId, productId = pid, quantity = qty)) }
+                                            // Single refresh for fallback
+                                            remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                        } catch (t: Throwable) {
+                                            snack.showSnackbar(t.message ?: "No se pudo eliminar el producto de la lista")
+                                        }
                                     }
                                 }
                             },
@@ -163,9 +175,12 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                 if (existingId != null && existingId > 0) {
                                     val newPurchased = !(local?.acquired ?: (remote?.purchased ?: false))
                                     scope.launch {
-                                        runCatching { repo.toggleItemPurchasedRemote(listId, existingId, newPurchased) }
-                                        runCatching { repo.syncListItems(listId) }
-                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                        try {
+                                            repo.toggleItemPurchasedRemote(listId, existingId, newPurchased)
+                                            remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                        } catch (t: Throwable) {
+                                            snack.showSnackbar(t.message ?: "No se pudo cambiar el estado")
+                                        }
                                     }
                                 }
                             }
@@ -173,7 +188,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     }
                 }
             }
-            Text("Costo total: $${total}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
+            Text("Costo total: \$${total}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
             // Reserve space at end for the floating action button (approx 72-88dp)
             Row(
                 Modifier
@@ -203,31 +218,38 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
             onDismiss = { showAdd = false },
             onAdd = { productId, name, price, unit, categoryName ->
                 scope.launch {
-                    val chosenProductId = if (productId != null) {
-                        // If selecting existing, pre-fill was shown; optionally update product only if we actually add
-                        if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
-                            // If user edited fields, propagate to backend to keep catalog consistente
-                            val existing = products.firstOrNull { it.id == productId }
-                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
-                            repo.updateProductRemote(
-                                id = productId,
-                                name = name ?: existing?.name ?: "",
-                                price = price ?: existing?.price ?: 0.0,
-                                unit = unit ?: existing?.unit ?: "u",
-                                categoryId = catId
-                            )
+                    try {
+                        val chosenProductId: Long = productId ?: run {
+                            val catId = categoryName?.let { if (it.isNotBlank()) repo.createOrFindCategoryByName(it) else null }
+                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
                         }
-                        productId
-                    } else {
-                        val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
-                        repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
+                        if (productId != null) {
+                            val existing = products.firstOrNull { it.id == productId }
+                            val existingCategoryName = existing?.categoryId?.let { cid -> categoryById[cid]?.name }
+                            val changedName = !name.isNullOrBlank()
+                            val changedPrice = price != null
+                            val changedUnit = !unit.isNullOrBlank() && unit != existing?.unit
+                            val changedCategory = !categoryName.isNullOrBlank() && !categoryName.equals(existingCategoryName, ignoreCase = true)
+                            if (changedName || changedPrice || changedUnit || changedCategory) {
+                                val catId = if (changedCategory) repo.createOrFindCategoryByName(categoryName) else existing?.categoryId
+                                repo.updateProductRemote(
+                                    id = productId,
+                                    name = name ?: existing?.name ?: "",
+                                    price = price ?: existing?.price ?: 0.0,
+                                    unit = unit ?: existing?.unit ?: "u",
+                                    categoryId = catId
+                                )
+                            }
+                        }
+                        val fallbackUnit = products.firstOrNull { it.id == chosenProductId }?.unit?.ifBlank { "u" } ?: "u"
+                        val safeUnitForItem = (unit?.takeIf { it.isNotBlank() } ?: fallbackUnit)
+                        repo.addItemRemote(listId, chosenProductId, 1, safeUnitForItem)
+                        // Single remote refresh for fallback
+                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                        showAdd = false
+                    } catch (t: Throwable) {
+                        snack.showSnackbar(t.message ?: "No se pudo agregar el producto a la lista")
                     }
-                    val safeUnitForItem = unit?.ifBlank { products.firstOrNull { it.id == chosenProductId }?.unit ?: "u" } ?: (products.firstOrNull { it.id == chosenProductId }?.unit ?: "u")
-                    runCatching { repo.addItemRemote(listId, chosenProductId, 1, safeUnitForItem) }
-                    runCatching { repo.syncListItems(listId) }
-                    // Refresh remote snapshot for immediate UI
-                    remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
-                    showAdd = false
                 }
             },
             onPrefillFor = { pid -> products.firstOrNull { it.id == pid } },
@@ -251,7 +273,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
             listId = listId,
             itemsProvider = {
                 // Always fetch a fresh snapshot from server to ensure accurate purchased flags
-                runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(remoteItems)
+                try { repo.fetchListItemsRemote(listId) } catch (_: Throwable) { remoteItems }
             },
             repo = repo,
             onDismiss = { if (!finalizing) showFinalize = false },
@@ -271,12 +293,12 @@ private fun ListRow(
     onDelete: () -> Unit,
     onToggleAcquired: () -> Unit
 ) {
-    androidx.compose.material3.ListItem(
+    ListItem(
         leadingContent = {
             Checkbox(checked = item.acquired, onCheckedChange = { onToggleAcquired() })
         },
         headlineContent = { Text(productName) },
-        supportingContent = { Text("$${price} · $unit x ${item.quantity}") },
+        supportingContent = { Text("\$${price} · ${unit} x ${item.quantity}") },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDec) { Text("-") }
@@ -287,7 +309,7 @@ private fun ListRow(
         },
         modifier = Modifier.fillMaxWidth()
     )
-    Divider()
+    HorizontalDivider()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -501,7 +523,7 @@ private fun FinalizeDialog(
                             } else {
                                 options.forEach { l ->
                                     val selected = selectedListId == l.id
-                                    androidx.compose.material3.ListItem(
+                                    ListItem(
                                         headlineContent = { Text(l.title) },
                                         trailingContent = {
                                             RadioButton(selected = selected, onClick = { selectedListId = l.id })

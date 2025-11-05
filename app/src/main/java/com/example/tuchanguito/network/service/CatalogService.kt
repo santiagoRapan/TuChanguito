@@ -28,7 +28,7 @@ interface CatalogService {
         @Query("order") order: String? = null,
     ): PageDTO<ProductDTO>
     @GET("api/products/{id}") suspend fun getProduct(@Path("id") id: Long): ProductDTO
-    @POST("api/products") suspend fun createProduct(@Body body: ProductRegistrationDTO): ProductDTO
+    @POST("api/products") suspend fun createProduct(@Body body: ProductRegistrationDTO): Response<Unit>
     @PUT("api/products/{id}") suspend fun updateProduct(@Path("id") id: Long, @Body body: ProductRegistrationDTO): Response<Unit>
     @DELETE("api/products/{id}") suspend fun deleteProduct(@Path("id") id: Long)
 }

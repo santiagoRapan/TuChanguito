@@ -28,6 +28,12 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories ORDER BY name")
     fun observeAll(): Flow<List<Category>>
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun getById(id: Long): Category?
+
+    @Query("DELETE FROM categories")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -43,6 +49,9 @@ interface ProductDao {
 
     @Query("SELECT * FROM products WHERE id = :id")
     suspend fun getById(id: Long): Product?
+
+    @Query("DELETE FROM products")
+    suspend fun clearAll()
 }
 
 @Dao

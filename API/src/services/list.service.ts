@@ -25,6 +25,18 @@ export async function createListService(listData: RegisterListData): Promise<Lis
     await queryRunner.startTransaction();
 
     try {
+        const existingList = await queryRunner.manager.findOne(List, {
+            where: { 
+                name: listData.name, 
+                owner: { id: listData.owner.id },
+                deletedAt: null 
+            }
+        });
+        
+        if (existingList) {
+            throw new ConflictError(ERROR_MESSAGES.CONFLICT.LIST_NAME_EXISTS);
+        }
+
         const list = new List();
         list.name = listData.name;
         list.description = listData.description;
@@ -38,10 +50,6 @@ export async function createListService(listData: RegisterListData): Promise<Lis
         return list.getFormattedList();
     } catch (err: any) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
-        
-        if (err.code === 'SQLITE_CONSTRAINT' && err.message.includes('unique_list_name_per_owner')) {
-            throw new ConflictError(ERROR_MESSAGES.CONFLICT.LIST_NAME_EXISTS);
-        }
         
         handleCaughtError(err);
     } finally {
@@ -160,7 +168,21 @@ export async function updateListService(listId: number, data: ListUpdateData, us
         if (!list || (list.owner.id !== user.id && !list.sharedWith.some(u => u.id === user.id))) {
             throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND.LIST);
         }
-        if (data.name !== undefined) list.name = data.name;
+        if (data.name !== undefined) {
+            const existingList = await queryRunner.manager.findOne(List, {
+                where: { 
+                    name: data.name, 
+                    owner: { id: user.id },
+                    deletedAt: null 
+                }
+            });
+            
+            if (existingList && existingList.id !== listId) {
+                throw new ConflictError(ERROR_MESSAGES.CONFLICT.LIST_NAME_EXISTS);
+            }
+            
+            list.name = data.name;
+        }
         if (data.description !== undefined) list.description = data.description;
         if (data.recurring !== undefined) list.recurring = data.recurring;
         if (data.metadata !== undefined) list.metadata = data.metadata;
@@ -235,21 +257,38 @@ export async function purchaseListService(listId: number, user: User, metadata: 
             throw new BadRequestError(ERROR_MESSAGES.BUSINESS_RULE.NO_ITEMS_IN_SHOPPING_LIST);
         }
 
-        const listItems: ListItem[] = [];
+        const purchasedItems: ListItem[] = [];
+        const purchaseItems: ListItem[] = [];
+        
         for (const item of list.items) {
-            const listItem = await queryRunner.manager.findOne(ListItem, { where: { id: item.id } });
+            const listItem = await queryRunner.manager.findOne(ListItem, { 
+                where: { id: item.id },
+                relations: ["product", "product.category"]
+            });
             if (listItem) {
                 if(listItem.purchased) {
                     listItem.lastPurchasedAt = new Date();
-                    listItems.push(listItem);
                     await queryRunner.manager.save(listItem);
+                    purchasedItems.push(listItem);
+                    
+                    const purchaseItem = new ListItem();
+                    purchaseItem.product = listItem.product;
+                    purchaseItem.quantity = listItem.quantity;
+                    purchaseItem.unit = listItem.unit;
+                    purchaseItem.purchased = listItem.purchased;
+                    purchaseItem.lastPurchasedAt = listItem.lastPurchasedAt;
+                    purchaseItem.metadata = listItem.metadata;
+                    purchaseItem.owner = listItem.owner;
+                    purchaseItem.list = listItem.list;
+                    
+                    purchaseItems.push(purchaseItem);
                 }
             } else {
                 throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND.ITEM);
             }
         }
 
-        if(listItems.length <= 0) {
+        if(purchasedItems.length <= 0) {
             throw new BadRequestError(ERROR_MESSAGES.BUSINESS_RULE.NO_ITEMS_PURCHASED_IN_SHOPPING_LIST);
         }
 
@@ -258,8 +297,16 @@ export async function purchaseListService(listId: number, user: User, metadata: 
         await queryRunner.manager.save(list);
         purchase.owner = user;
         purchase.list = list;
-        purchase.items = listItems;
         purchase.metadata = metadata ?? {};
+        
+        await queryRunner.manager.save(purchase);
+        
+        for (const purchaseItem of purchaseItems) {
+            purchaseItem.purchase = purchase;
+            await queryRunner.manager.save(purchaseItem);
+        }
+        
+        purchase.items = purchaseItems;
         await queryRunner.manager.save(purchase);
 
         if (!list.recurring) {

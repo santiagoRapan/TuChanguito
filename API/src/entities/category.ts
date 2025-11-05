@@ -4,7 +4,6 @@ import { User } from "./user";
 import { Product } from "./product";
 
 @Entity()
-@Unique(['name', 'owner'])
 export class Category extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;

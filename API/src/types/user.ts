@@ -123,11 +123,11 @@ export function isValidPasswordResetData(data: any): { isValid: boolean; message
 }
 
 export function isValidChangePassword(data: any): { isValid: boolean; message?: string } {
-  if (!('currentPassword' in data) || data.currentPassword.length <= 6) {
+  if (!('currentPassword' in data) || data.currentPassword.length < 6) {
     return { isValid: false, message: ERROR_MESSAGES.VALIDATION.INVALID_PASSWORD };
   }
 
-  if (!('newPassword' in data) || data.newPassword.length <= 6) {
+  if (!('newPassword' in data) || data.newPassword.length < 6) {
     return { isValid: false, message: ERROR_MESSAGES.VALIDATION.INVALID_PASSWORD };
   }
 

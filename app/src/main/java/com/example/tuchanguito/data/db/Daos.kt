@@ -97,4 +97,7 @@ interface PantryDao {
 
     @Query("DELETE FROM pantry_items WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM pantry_items")
+    suspend fun clearAll()
 }

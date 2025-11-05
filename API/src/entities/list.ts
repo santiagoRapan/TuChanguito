@@ -19,7 +19,6 @@ import {ListItem} from "./listItem";
 import {Purchase} from "./purchase";
 
 @Entity()
-@Unique("unique_list_name_per_owner", ["name", "owner"])
 export class List extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -56,7 +55,7 @@ export class List extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({type: "date", nullable: true})
+  @Column({type: "datetime", nullable: true})
   @IsOptional()
   lastPurchasedAt: Date;
 

@@ -32,6 +32,9 @@ class AppRepository private constructor(context: Context){
     private val api = ApiModule(context)
     private val prefs = PreferencesManager(context)
 
+    // Cache en memoria del pantry id activo para evitar sondas repetidas
+    private var cachedPantryId: Long? = null
+
     // In-memory source of truth for lists fetched from API
     private val _remoteLists = MutableStateFlow<List<ShoppingList>>(emptyList())
     val remoteLists = _remoteLists.asStateFlow()
@@ -442,19 +445,58 @@ class AppRepository private constructor(context: Context){
     // Pantry
     fun pantry(): Flow<List<PantryItem>> = pantryDao.observeAll()
 
+    private suspend fun isPantryUsable(id: Long): Boolean {
+        return runCatching {
+            api.pantry.getItems(id, page = 1, perPage = 1)
+            true
+        }.getOrDefault(false)
+    }
+
     suspend fun ensureDefaultPantryId(): Long {
-        // Try to get pantries; if none, create one named "Alacena"
-        val page = runCatching { api.pantry.getPantries(owner = true, page = 1, perPage = 1) }.getOrNull()
-        val existing = page?.data?.firstOrNull()
-        if (existing != null) return existing.id
-        val created = api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena"))
+        // Evitar llamadas repetidas: si tenemos cache en memoria, devolverla
+        cachedPantryId?.let { return it }
+        // Intentar recuperar la última alacena usada sin sondear el endpoint de items
+        val saved = runCatching { prefs.currentPantryId.first() }.getOrNull()
+        if (saved != null) {
+            cachedPantryId = saved
+            return saved
+        }
+        // No hay guardada: crear una nueva alacena inmediatamente (evitamos escanear y sondear)
+        val created = runCatching { api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena")) }
+            .getOrElse {
+                // Nombre alternativo para evitar conflicto si ya existe
+                api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena ${System.currentTimeMillis() % 10000}"))
+            }
+        runCatching { prefs.setCurrentPantryId(created.id) }
+        cachedPantryId = created.id
         return created.id
     }
 
+    private suspend fun createFreshPantry(): Long {
+        // Try default name; if conflict, suffix with timestamp fragment
+        val tryNames = listOf("Alacena", "Alacena ${System.currentTimeMillis() % 10000}")
+        for (n in tryNames) {
+            val created = runCatching { api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = n)) }.getOrNull()
+            if (created != null) return created.id
+        }
+        // Last resort
+        val fallback = api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena ${System.currentTimeMillis()}"))
+        return fallback.id
+    }
+
     suspend fun syncPantry(search: String? = null, categoryId: Long? = null) {
-        val pantryId = ensureDefaultPantryId()
-        val page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000) }.getOrNull()
-        val items = page?.data.orEmpty()
+        var pantryId = ensureDefaultPantryId()
+        // Reset local mirror before rehydrating from server to avoid stale/corrupt rows from a previous pantry
+        runCatching { pantryDao.clearAll() }
+        var page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000, sortBy = "productName", order = "DESC") }.getOrNull()
+        if (page == null) {
+            // The selected pantry is not usable (backend 500). Create a fresh pantry and retry once.
+            pantryId = runCatching { createFreshPantry() }.getOrElse { pantryId }
+            runCatching { prefs.setCurrentPantryId(pantryId) }
+            page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000, sortBy = "productName", order = "DESC") }.getOrNull()
+            if (page == null) return // fail silently to avoid crashing UI
+        }
+        val items = page.data
         // Upsert products/categories and mirror pantry items
         items.forEach { it ->
             val p = it.product
@@ -535,6 +577,31 @@ class AppRepository private constructor(context: Context){
         // Update local Room title (still the same name) and refresh remote lists so the shared user view is consistent
         listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
         runCatching { refreshLists() }
+    }
+
+    // --- Pantry helpers for backend-driven filtering ---
+    suspend fun pantryCategoriesForQuery(name: String?): List<com.example.tuchanguito.network.dto.CategoryDTO> {
+        val pantryId = ensureDefaultPantryId()
+        val page = runCatching {
+            api.pantry.getItems(
+                pantryId,
+                search = name?.takeIf { it.isNotBlank() },
+                categoryId = null,
+                page = 1,
+                perPage = 1000,
+                sortBy = "productName",
+                order = "ASC"
+            )
+        }.getOrNull()
+        val distinct = LinkedHashMap<Long, com.example.tuchanguito.network.dto.CategoryDTO>()
+        page?.data.orEmpty().forEach { it ->
+            val c = it.product.category
+            val id = c?.id
+            if (id != null && !distinct.containsKey(id)) {
+                distinct[id] = com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = c.name, metadata = c.metadata)
+            }
+        }
+        return distinct.values.toList().sortedBy { it.name.lowercase() }
     }
 
     companion object {

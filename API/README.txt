@@ -1,6 +1,6 @@
 Instalación del API:
 --------------------
-1) Descomprimir el archivo "API v1.0.1 Installer.zip" en algún directorio temporal.
+1) Descomprimir el archivo "API v1.0.2 Installer.zip" en algún directorio temporal.
 2) Descargar de https://nodejs.org/en/ la versión LTS (long-term support) 22.20.0 de Node.js correspondiente a la plataforma.
 3) Crear un nuevo directorio donde quedará instalada el API una vez finalizado este instructivo.
 4) Copiar el contenido del directorio temporal del paso 1 al directorio creado en el paso 3.

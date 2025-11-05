@@ -15,7 +15,6 @@ import {Category} from "./category";
 import {Pantry} from "./pantry";
 
 @Entity()
-@Unique(['name', 'owner'])
 export class Product extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;

@@ -84,8 +84,6 @@ export async function getPurchaseByIdService(id: number, user: User): Promise<Pu
         .leftJoinAndSelect("purchase.items", "items")
         .leftJoinAndSelect("items.product", "product")
         .leftJoinAndSelect("product.category", "productCategory")
-        .leftJoinAndSelect("product.pantry", "productPantry")
-        .leftJoinAndSelect("productPantry.owner", "productPantryOwner")
         .where("purchase.id = :id", { id })
         .andWhere("purchase.ownerId = :ownerId", { ownerId: user.id })
         .withDeleted()
@@ -143,7 +141,7 @@ export async function restorePurchaseService(id: number, user: User): Promise<Li
     if (!purchase.list && purchase.listId) {
       purchase.list = await queryRunner.manager.findOne(List, {
         where: { id: purchase.listId },
-        relations: ["owner", "sharedWith", "items"],
+        relations: ["owner", "sharedWith", "items", "items.product", "items.product.category"],
         withDeleted: true,
       });
     }
@@ -160,17 +158,19 @@ export async function restorePurchaseService(id: number, user: User): Promise<Li
 
     await queryRunner.manager.save(newList);
 
-    if (purchase.items && purchase.items.length > 0) {
-      for (const item of purchase.items) {
+    if (purchase.list.items && purchase.list.items.length > 0) {
+      for (const originalItem of purchase.list.items) {
+        if (!originalItem.product || originalItem.product.deletedAt) {
+          continue;
+        }
+
         const newItem = new ListItem();
-        Object.assign(newItem, item);
-        newItem.id = undefined;
-        newItem.quantity = item.quantity;
-        newItem.unit = item.unit;
-        newItem.metadata = item.metadata;
+        newItem.quantity = originalItem.quantity;
+        newItem.unit = originalItem.unit;
+        newItem.metadata = originalItem.metadata;
         newItem.purchased = false;
         newItem.lastPurchasedAt = null;
-        newItem.product = item.product;
+        newItem.product = originalItem.product;
         newItem.owner = user;
         newItem.list = newList;
         newItem.purchase = null;

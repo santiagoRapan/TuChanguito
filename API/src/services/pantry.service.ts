@@ -24,6 +24,18 @@ export async function createPantryService(data: { name: string, metadata?: any }
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+        const existingPantry = await queryRunner.manager.findOne(Pantry, {
+            where: { 
+                name: data.name, 
+                owner: { id: user.id },
+                deletedAt: null 
+            }
+        });
+        
+        if (existingPantry) {
+            throw new ConflictError(ERROR_MESSAGES.CONFLICT.PANTRY_EXISTS);
+        }
+
         const pantry = new Pantry();
         pantry.name = data.name;
         pantry.metadata = data.metadata ?? null;
@@ -33,10 +45,6 @@ export async function createPantryService(data: { name: string, metadata?: any }
         return pantry.getFormattedPantry();
     } catch (err) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
-        
-        if (err instanceof QueryFailedError && err.driverError?.message?.includes('UNIQUE constraint failed: pantry.name, pantry.ownerId')) {
-            throw new ConflictError(ERROR_MESSAGES.CONFLICT.PANTRY_EXISTS);
-        }
         
         handleCaughtError(err);
     } finally {
@@ -197,6 +205,18 @@ export async function updatePantryService(pantryId: number, name: string, metada
         
         if (user && pantry.owner.id !== user.id) {
             throw new ForbiddenError(ERROR_MESSAGES.AUTHORIZATION.INSUFFICIENT_PERMISSIONS);
+        }
+        
+        const existingPantry = await queryRunner.manager.findOne(Pantry, {
+            where: { 
+                name: name, 
+                owner: { id: pantry.owner.id },
+                deletedAt: null 
+            }
+        });
+        
+        if (existingPantry && existingPantry.id !== pantryId) {
+            throw new ConflictError(ERROR_MESSAGES.CONFLICT.PANTRY_EXISTS);
         }
         
         pantry.name = name;

@@ -102,6 +102,18 @@ export async function createProductService(data: RegisterProductData): Promise<P
   await queryRunner.connect();
   await queryRunner.startTransaction();
   try {
+    const existingProduct = await queryRunner.manager.findOne(Product, {
+      where: { 
+        name: data.name, 
+        owner: { id: data.owner.id },
+        deletedAt: null 
+      }
+    });
+    
+    if (existingProduct) {
+      throw new ConflictError(ERROR_MESSAGES.CONFLICT.PRODUCT_EXISTS);
+    }
+
     let category = null;
     if(data.category?.id) {
       category = await queryRunner.manager.findOne(Category, { where: { id: data.category.id } });
@@ -118,10 +130,6 @@ export async function createProductService(data: RegisterProductData): Promise<P
   } catch (err: any) {
     if (queryRunner.isTransactionActive) {
       await queryRunner.rollbackTransaction();
-    }
-    
-    if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
-      throw new ConflictError(ERROR_MESSAGES.CONFLICT.PRODUCT_EXISTS);
     }
     
     handleCaughtError(err);
@@ -150,6 +158,18 @@ export async function updateProductService(id: number, owner: User, data: Produc
     if (!product) throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND.PRODUCT);
     
     if (data.name !== undefined) {
+      const existingProduct = await queryRunner.manager.findOne(Product, {
+        where: { 
+          name: data.name, 
+          owner: { id: owner.id },
+          deletedAt: null 
+        }
+      });
+      
+      if (existingProduct && existingProduct.id !== id) {
+        throw new ConflictError(ERROR_MESSAGES.CONFLICT.PRODUCT_EXISTS);
+      }
+      
       product.name = data.name;
     }
     
@@ -172,10 +192,6 @@ export async function updateProductService(id: number, owner: User, data: Produc
   } catch (err: any) {
     if (queryRunner.isTransactionActive) {
       await queryRunner.rollbackTransaction();
-    }
-    
-    if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
-      throw new ConflictError(ERROR_MESSAGES.CONFLICT.PRODUCT_EXISTS);
     }
     
     handleCaughtError(err);

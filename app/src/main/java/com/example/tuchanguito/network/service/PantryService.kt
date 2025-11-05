@@ -9,6 +9,8 @@ interface PantryService {
         @Query("owner") owner: Boolean? = null,
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null,
+        @Query("sort_by") sortBy: String? = null,
+        @Query("order") order: String? = null,
     ): PageDTO<PantryDTO>
 
     @GET("api/pantries/{id}")
@@ -31,6 +33,8 @@ interface PantryService {
         @Query("category_id") categoryId: Long? = null,
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null,
+        @Query("sort_by") sortBy: String? = null,
+        @Query("order") order: String? = null,
     ): PageDTO<PantryItemDTO>
 
     @POST("api/pantries/{id}/items")
@@ -42,4 +46,3 @@ interface PantryService {
     @DELETE("api/pantries/{id}/items/{item_id}")
     suspend fun deleteItem(@Path("id") pantryId: Long, @Path("item_id") itemId: Long)
 }
-

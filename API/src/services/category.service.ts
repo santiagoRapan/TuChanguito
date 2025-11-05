@@ -20,6 +20,18 @@ export async function createNewCategoryService(categoryData: RegisterCategoryDat
   await queryRunner.startTransaction();
 
   try {
+    const existingCategory = await queryRunner.manager.findOne(Category, {
+      where: { 
+        name: categoryData.name, 
+        owner: { id: categoryData.owner.id },
+        deletedAt: null 
+      }
+    });
+    
+    if (existingCategory) {
+      throw new ConflictError(ERROR_MESSAGES.CONFLICT.CATEGORY_EXISTS);
+    }
+
     const category = new Category();
     category.name = categoryData.name;
     category.owner = categoryData.owner;
@@ -120,6 +132,18 @@ export async function updateCategoryService(id: number, name: string, metadata?:
     const category: Category | null = await queryRunner.manager.findOne(Category, { where: { id: id, deletedAt: null }, relations: ['owner'] });
     if (!category) throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND.CATEGORY);
 
+    const existingCategory = await queryRunner.manager.findOne(Category, {
+      where: { 
+        name: name, 
+        owner: { id: category.owner.id },
+        deletedAt: null 
+      }
+    });
+    
+    if (existingCategory && existingCategory.id !== id) {
+      throw new ConflictError(ERROR_MESSAGES.CONFLICT.CATEGORY_EXISTS);
+    }
+    
     category.name = name;
     if (metadata !== undefined) category.metadata = metadata;
     await queryRunner.manager.save(category);

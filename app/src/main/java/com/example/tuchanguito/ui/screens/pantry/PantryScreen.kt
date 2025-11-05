@@ -35,10 +35,20 @@ fun PantryScreen() {
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
 
+    var remoteCategories by remember { mutableStateOf<List<com.example.tuchanguito.network.dto.CategoryDTO>>(emptyList()) }
+
     LaunchedEffect(Unit) {
         runCatching { repo.syncCatalog() }
-        // Load full pantry inventory once; filters are applied locally in UI
+        // Backend-driven initial pantry load (no filters)
         runCatching { repo.syncPantry() }
+        // Load pantry categories from backend so only those with items appear
+        remoteCategories = repo.pantryCategoriesForQuery(name = null)
+    }
+
+    // When query changes, refresh categories and pantry items from backend
+    LaunchedEffect(query) {
+        runCatching { repo.syncPantry(search = query.ifBlank { null }, categoryId = selectedCategoryId) }
+        remoteCategories = runCatching { repo.pantryCategoriesForQuery(name = query.ifBlank { null }) }.getOrDefault(emptyList())
     }
 
     Scaffold(
@@ -60,12 +70,21 @@ fun PantryScreen() {
                 item {
                     FilterChip(selected = selectedCategoryId == null, onClick = {
                         selectedCategoryId = null
+                        // Refresh items from backend without category filter
+                        scope.launch {
+                            runCatching { repo.syncPantry(search = query.ifBlank { null }, categoryId = null) }
+                            remoteCategories = runCatching { repo.pantryCategoriesForQuery(name = query.ifBlank { null }) }.getOrDefault(emptyList())
+                        }
                     }, label = { Text("Todas") })
                 }
-                items(categories.size) { i ->
-                    val c = categories[i]
-                    FilterChip(selected = selectedCategoryId == c.id, onClick = {
+                items(remoteCategories.size) { i ->
+                    val c = remoteCategories[i]
+                    FilterChip(selected = selectedCategoryId == (c.id ?: -1L), onClick = {
                         selectedCategoryId = c.id
+                        scope.launch {
+                            runCatching { repo.syncPantry(search = query.ifBlank { null }, categoryId = c.id) }
+                            // Categories may change with search text but not with the category itself; keep them
+                        }
                     }, label = { Text(c.name) })
                 }
             }
@@ -73,15 +92,8 @@ fun PantryScreen() {
             Divider()
 
             val productById = remember(products) { products.associateBy { it.id } }
-            // Apply filters locally using product name/category
-            val filteredPantry = remember(pantryItems, products, query, selectedCategoryId) {
-                pantryItems.filter { pi ->
-                    val p = productById[pi.productId]
-                    val matchesQuery = query.isBlank() || (p?.name?.contains(query, ignoreCase = true) == true)
-                    val matchesCategory = selectedCategoryId == null || p?.categoryId == selectedCategoryId
-                    matchesQuery && matchesCategory
-                }
-            }
+            // Now pantryItems ya vienen filtrados por backend (query y categoryId), así que acá solo mapeamos a UI
+            val filteredPantry = pantryItems
 
             LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 88.dp)) {
                 if (filteredPantry.isEmpty()) {
@@ -94,8 +106,16 @@ fun PantryScreen() {
                             name = p?.name ?: "Producto",
                             unit = p?.unit?.ifBlank { "u" } ?: "u",
                             quantity = pi.quantity,
-                            onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1); runCatching { repo.syncPantry() } } },
-                            onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1); runCatching { repo.syncPantry() } } },
+                            onInc = {
+                                scope.launch {
+                                    repo.updatePantryItem(pi.id, pi.quantity + 1)
+                                }
+                            },
+                            onDec = {
+                                if (pi.quantity > 1) scope.launch {
+                                    repo.updatePantryItem(pi.id, pi.quantity - 1)
+                                }
+                            },
                             onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
                         )
                         Divider()
@@ -117,20 +137,25 @@ fun PantryScreen() {
             onDismiss = { showAdd = false },
             onAdd = { productId, name, price, unit, categoryName ->
                 scope.launch {
-                    val finalProductId = if (productId != null) {
-                        val existing = products.firstOrNull { it.id == productId }
-                        if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
-                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
-                            repo.updateProductRemote(productId, name ?: existing?.name ?: "", price ?: existing?.price ?: 0.0, unit ?: existing?.unit ?: "u", catId)
+                    try {
+                        val finalProductId = if (productId != null) {
+                            val existing = products.firstOrNull { it.id == productId }
+                            if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
+                                val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
+                                repo.updateProductRemote(productId, name ?: existing?.name ?: "", price ?: existing?.price ?: 0.0, unit ?: existing?.unit ?: "u", catId)
+                            }
+                            productId
+                        } else {
+                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
+                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
                         }
-                        productId
-                    } else {
-                        val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
-                        repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
+                        // Use addOrIncrement to avoid 409 and crashes if already exists
+                        repo.addOrIncrementPantryItem(finalProductId, addQuantity = 1, unit = unit ?: "u")
+                        runCatching { repo.syncPantry() }
+                        showAdd = false
+                    } catch (t: Throwable) {
+                        snack.showSnackbar(t.message ?: "No se pudo agregar el producto a la alacena")
                     }
-                    repo.addPantryItem(finalProductId, quantity = 1, unit = unit ?: "u")
-                    runCatching { repo.syncPantry() }
-                    showAdd = false
                 }
             }
         )

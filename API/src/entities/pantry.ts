@@ -19,7 +19,6 @@ import {Product} from "./product";
 import {removeUserForListShared} from "../utils/users";
 
 @Entity()
-@Unique(["name", "owner"])
 export class Pantry extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;

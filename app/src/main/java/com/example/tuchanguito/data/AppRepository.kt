@@ -529,6 +529,14 @@ class AppRepository private constructor(context: Context){
         return distinct.values.toList().sortedBy { it.name.lowercase() }
     }
 
+    // --- New: share shopping list with user by email ---
+    suspend fun shareListRemote(listId: Long, email: String) {
+        val dto = api.shopping.shareList(listId, com.example.tuchanguito.network.dto.ShareRequestDTO(email))
+        // Update local Room title (still the same name) and refresh remote lists so the shared user view is consistent
+        listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
+        runCatching { refreshLists() }
+    }
+
     companion object {
         @Volatile private var INSTANCE: AppRepository? = null
         fun get(context: Context): AppRepository = INSTANCE ?: synchronized(this) {

@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.retrofit2.converter.moshi)
     implementation(libs.okhttp.logging)
     implementation(libs.moshi.kotlin)
+    // Material icons extended for ContentCopy icon
+    implementation(libs.androidx.compose.material.icons.extended)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

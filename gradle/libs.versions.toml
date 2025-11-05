@@ -41,10 +41,11 @@ retrofit2 = { group = "com.squareup.retrofit2", name = "retrofit", version.ref =
 retrofit2-converter-moshi = { group = "com.squareup.retrofit2", name = "converter-moshi", version.ref = "retrofit" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
+# Added: Material icons extended for ContentCopy icon
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-

@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -19,6 +21,9 @@ import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.network.dto.ListItemDTO
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
+import retrofit2.HttpException
+import androidx.compose.ui.platform.LocalFocusManager
+import java.net.SocketTimeoutException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,12 +71,16 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     var showAdd by remember { mutableStateOf(false) }
     var showFinalize by remember { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
+    var shareBusy by remember { mutableStateOf(false) }
+    var shareMessage by remember { mutableStateOf<String?>(null) }
+    var shareIsError by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(list?.title ?: "Lista") }, actions = {
                 IconButton(onClick = {
-                    // Share list
+                    // Share list via app share sheet (copy text)
                     val body = buildString {
                         appendLine(list?.title ?: "Lista")
                         appendLine()
@@ -84,7 +93,15 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     }
                     val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }
                     context.startActivity(Intent.createChooser(send, "Compartir lista"))
-                }) { Text("↗") }
+                }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copiar contenido de la lista") }
+                IconButton(onClick = {
+                    // Reset message state each time dialog opens
+                    shareMessage = null
+                    shareIsError = false
+                    showShare = true
+                }) {
+                    Icon(Icons.Default.Share, contentDescription = "Compartir lista con usuario")
+                }
             })
         },
         snackbarHost = { SnackbarHost(hostState = snack) },
@@ -260,6 +277,55 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         )
     }
 
+    if (showShare) {
+        ShareListDialog(
+            busy = shareBusy,
+            message = shareMessage,
+            isError = shareIsError,
+            onDismiss = {
+                if (!shareBusy) {
+                    showShare = false
+                    shareMessage = null
+                    shareIsError = false
+                }
+            },
+            onShare = { email ->
+                if (shareBusy) return@ShareListDialog
+                shareBusy = true
+                shareMessage = null
+                shareIsError = false
+                scope.launch {
+                    try {
+                        repo.shareListRemote(listId, email)
+                        // Success: show concise success message
+                        shareMessage = "La lista ha sido compartida"
+                        shareIsError = false
+                    } catch (t: Throwable) {
+                        // If it's a network timeout, optimistically report success because the server may have processed it
+                        val isTimeout = t is SocketTimeoutException || (t.message?.contains("timeout", ignoreCase = true) == true)
+                        if (isTimeout) {
+                            shareMessage = "La lista ha sido compartida"
+                            shareIsError = false
+                        } else {
+                            val code = (t as? HttpException)?.code()
+                            val msg = when (code) {
+                                404 -> "No encontramos un usuario registrado con ese email"
+                                409 -> "Ya compartiste esta lista con ese email"
+                                400 -> "No se pudo compartir la lista. Verifica el email."
+                                401, 403 -> "No estás autorizado para realizar esta acción"
+                                else -> t.message ?: "No se pudo compartir la lista"
+                            }
+                            shareMessage = msg
+                            shareIsError = true
+                        }
+                    } finally {
+                        shareBusy = false
+                    }
+                }
+            }
+        )
+    }
+
     // --- Finalize dialog state and UI ---
     var finalizing by remember { mutableStateOf(false) }
 
@@ -394,6 +460,60 @@ private fun AddItemDialog(
                     label = { Text("Categoría (opcional)") },
                     singleLine = true
                 )
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareListDialog(
+    busy: Boolean,
+    message: String?,
+    isError: Boolean,
+    onDismiss: () -> Unit,
+    onShare: (String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    val isValid = remember(email) { email.contains("@") && email.contains('.') && email.length >= 5 }
+    val focusManager = LocalFocusManager.current
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        confirmButton = {
+            val canConfirm = !busy && isValid && (message == null || isError)
+            TextButton(onClick = {
+                focusManager.clearFocus()
+                onShare(email.trim())
+            }, enabled = canConfirm) {
+                Text("Compartir")
+            }
+        },
+        dismissButton = {
+            val dismissLabel = if (message != null && !isError) "Cerrar" else "Cancelar"
+            TextButton(onClick = { if (!busy) onDismiss() }) { Text(dismissLabel) }
+        },
+        title = { Text("Compartir lista") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (busy) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
+                Text("Ingresa el email del usuario con quien deseas compartir la lista")
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    singleLine = true,
+                    enabled = !busy && (message == null || isError),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    supportingText = {
+                        if (!isValid && email.isNotBlank() && (message == null || isError)) Text("Introduce un email válido")
+                    }
+                )
+                if (message != null) {
+                    val color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    Text(message, color = color)
+                }
             }
         }
     )

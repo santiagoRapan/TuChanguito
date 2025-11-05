@@ -22,6 +22,10 @@ interface ShoppingService {
     @PUT("api/shopping-lists/{id}") suspend fun updateList(@Path("id") id: Long, @Body body: ShoppingListCreateDTO): ShoppingListDTO
     @DELETE("api/shopping-lists/{id}") suspend fun deleteList(@Path("id") id: Long)
 
+    // --- New: share list ---
+    @POST("api/shopping-lists/{id}/share")
+    suspend fun shareList(@Path("id") listId: Long, @Body body: ShareRequestDTO): ShoppingListDTO
+
     // Items
     @GET("api/shopping-lists/{id}/items") suspend fun getItems(@Path("id") listId: Long): List<ListItemDTO>
 

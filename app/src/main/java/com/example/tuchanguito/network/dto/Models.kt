@@ -110,3 +110,6 @@ data class PantryItemUpdateDTO(
     val unit: String,
     val metadata: Map<String, Any>? = null
 )
+
+// --- New: shopping list share ---
+data class ShareRequestDTO(val email: String)

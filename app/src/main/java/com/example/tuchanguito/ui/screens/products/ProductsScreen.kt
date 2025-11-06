@@ -1,8 +1,6 @@
 package com.example.tuchanguito.ui.screens.products
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
@@ -17,6 +15,12 @@ import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
 import com.example.tuchanguito.data.AppRepository
 import kotlinx.coroutines.launch
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,8 +67,6 @@ fun ProductsScreen() {
             .onFailure { snack.showSnackbar(it.message ?: "Error cargando productos") }
     }
 
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -98,7 +100,7 @@ fun ProductsScreen() {
             )
 
             // Chips solo para categorías con productos (según backend)
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
                     FilterChip(
                         selected = selectedCategoryId == null,
@@ -116,53 +118,102 @@ fun ProductsScreen() {
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Lista de productos (desde backend), con acciones
             androidx.compose.foundation.lazy.LazyColumn(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 if (remoteProducts.isEmpty()) {
                     item { Text("Sin productos", style = MaterialTheme.typography.bodyMedium) }
                 } else {
-                    items(remoteProducts.size) { i ->
+                    items(remoteProducts.size, key = { idx -> remoteProducts[idx].id ?: idx.toLong() }) { i ->
                         val p = remoteProducts[i]
-                        ListItem(
-                            headlineContent = { Text(p.name) },
-                            supportingContent = {
-                                val price = (p.metadata?.get("price") as? Double) ?: (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                                Text("Precio: ${'$'}price")
-                            },
-                            trailingContent = {
-                                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                                    IconButton(onClick = { editingProductId = p.id }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Edit,
-                                            contentDescription = "Editar",
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    IconButton(onClick = {
-                                        scope.launch {
-                                            runCatching { repo.deleteProductRemote(p.id ?: return@launch) }
-                                                .onFailure { snack.showSnackbar(it.message ?: "No se pudo eliminar") }
-                                            // Refresh products after deletion
-                                            runCatching { repo.searchProductsDTO(query, selectedCategoryId) }
-                                                .onSuccess { remoteProducts = it }
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { target ->
+                                if (target == SwipeToDismissBoxValue.EndToStart) {
+                                    scope.launch {
+                                        val id = p.id ?: return@launch
+                                        val res = runCatching { repo.deleteProductRemote(id) }
+                                        if (res.isFailure) {
+                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: "No se pudo eliminar")
+                                        } else {
+                                            // Actualiza UI localmente para evitar un GET extra
+                                            remoteProducts = remoteProducts.filterNot { it.id == id }
                                         }
-                                    }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Delete,
-                                            contentDescription = "Eliminar",
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
                                     }
+                                    true
+                                } else {
+                                    false
                                 }
                             }
                         )
-                        Divider()
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val fgColor = MaterialTheme.colorScheme.onErrorContainer
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp)
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(vertical = 0.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
+                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = fgColor)
+                                    }
+                                }
+                            }
+                        ) {
+                            // Contenido del item
+                            ListItem(
+                                headlineContent = { Text(p.name) },
+                                supportingContent = {
+                                    val raw = p.metadata?.get("price")
+                                    val priceVal = when (raw) {
+                                        is Number -> raw.toDouble()
+                                        is String -> raw.toDoubleOrNull() ?: 0.0
+                                        else -> 0.0
+                                    }
+                                    val priceStr = "%.2f".format(priceVal)
+                                    Text("Precio: $" + priceStr)
+                                },
+                                trailingContent = {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        IconButton(onClick = { editingProductId = p.id }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Edit,
+                                                contentDescription = "Editar",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        IconButton(onClick = {
+                                            scope.launch {
+                                                val id = p.id ?: return@launch
+                                                val res = runCatching { repo.deleteProductRemote(id) }
+                                                if (res.isFailure) {
+                                                    snack.showSnackbar(res.exceptionOrNull()?.message ?: "No se pudo eliminar")
+                                                } else {
+                                                    remoteProducts = remoteProducts.filterNot { it.id == id }
+                                                }
+                                            }
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Delete,
+                                                contentDescription = "Eliminar",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                            HorizontalDivider()
+                        }
                     }
                 }
             }

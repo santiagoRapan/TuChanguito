@@ -53,7 +53,16 @@ class AppRepository private constructor(context: Context){
     suspend fun verifyAccount(email: String, code: String): Result<Unit> = try {
         api.auth.verify(com.example.tuchanguito.network.dto.VerificationCodeDTO(code))
         Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
+    } catch (t: Throwable) {
+        val friendly = when (t) {
+            is retrofit2.HttpException -> when (t.code()) {
+                400 -> "Código inválido"
+                else -> "Error al verificar (HTTP ${t.code()})"
+            }
+            else -> "Error al verificar"
+        }
+        Result.failure(IllegalStateException(friendly, t))
+    }
 
     suspend fun login(email: String, password: String): Result<Unit> = try {
         val token = api.auth.login(CredentialsDTO(email, password)).token

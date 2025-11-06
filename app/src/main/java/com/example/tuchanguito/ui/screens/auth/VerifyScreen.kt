@@ -24,7 +24,6 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val prefs = PreferencesManager(context)
     val pendingEmail by prefs.pendingEmail.collectAsState(initial = null)
@@ -48,7 +47,7 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
             title = { Text("Verificar cuenta") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") } }
         )
-    }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
+    } /* snackbarHost removed */ ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email a verificar") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
             Spacer(Modifier.height(8.dp))
@@ -69,27 +68,26 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                                     val loginResult = repo.login(e, p)
                                     if (loginResult.isSuccess) {
                                         prefs.clearPendingCredentials()
-                                        onVerified()
+                                        onVerified() // Go to Home (token set)
                                     } else {
                                         val msg = loginResult.exceptionOrNull()?.message ?: "Error"
-                                        snackbarHostState.showSnackbar(msg)
-                                        error = msg
+                                        error = msg // inline only
                                     }
                                 } else {
-                                    onVerified()
+                                    // Verified, but no credentials to log in: go back to Login
+                                    onBack()
                                 }
                             } else {
-                                onVerified()
+                                // Verified, but no credentials to log in: go back to Login
+                                onBack()
                             }
                         } else {
                             val msg = verifyResult.exceptionOrNull()?.message ?: "Error"
-                            snackbarHostState.showSnackbar(msg)
-                            error = msg
+                            error = msg // inline only
                         }
                     } catch (t: Throwable) {
                         val msg = t.message ?: "Error"
-                        snackbarHostState.showSnackbar(msg)
-                        error = msg
+                        error = msg // inline only
                     } finally { isLoading = false }
                 }
             }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
@@ -105,7 +103,6 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                         if (!isEmailValid) {
                             resendMessage = "Ingresa un email válido"
                         } else {
-                            // Attempt resend; if user not registered, server should respond with error
                             runCatching { repo.resendVerificationCode(targetEmail) }
                                 .onSuccess { resendMessage = "Código reenviado a $targetEmail" }
                                 .onFailure { resendMessage = it.message ?: "No se pudo reenviar código (verifica que el email esté registrado)" }

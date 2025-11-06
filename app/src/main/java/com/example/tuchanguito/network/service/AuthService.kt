@@ -33,4 +33,7 @@ interface AuthService {
 
     @PUT("api/users/profile")
     suspend fun updateProfile(@Body body: com.example.tuchanguito.network.dto.UserUpdateDTO): com.example.tuchanguito.network.dto.UserDTO
+
+    @POST("api/users/send-verification")
+    suspend fun sendVerification(@Query("email") email: String): Unit
 }

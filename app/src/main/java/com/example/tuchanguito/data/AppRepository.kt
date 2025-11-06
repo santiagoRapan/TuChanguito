@@ -615,6 +615,13 @@ class AppRepository private constructor(context: Context){
         return distinct.values.toList().sortedBy { it.name.lowercase() }
     }
 
+    suspend fun resendVerificationCode(email: String): Result<Unit> = try {
+        api.auth.sendVerification(email)
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        Result.failure(t)
+    }
+
     companion object {
         @Volatile private var INSTANCE: AppRepository? = null
         fun get(context: Context): AppRepository = INSTANCE ?: synchronized(this) {

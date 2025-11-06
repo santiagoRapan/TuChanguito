@@ -27,12 +27,18 @@ fun AppNavGraph(
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
         navigation(startDestination = Routes.LOGIN, route = Routes.AUTH) {
             composable(Routes.LOGIN) { LoginScreen(
-                onLoginSuccess = { navController.navigate(TopLevelDest.Home.route) { popUpTo(Routes.AUTH) { inclusive = true } } },
-                onRegister = { navController.navigate(Routes.REGISTER) },
-                onForgotPassword = { navController.navigate(Routes.CHANGE_PASSWORD) }
+                { navController.navigate(TopLevelDest.Home.route) { popUpTo(Routes.AUTH) { inclusive = true } } },
+                { navController.navigate(Routes.REGISTER) },
+                { navController.navigate(Routes.CHANGE_PASSWORD) },
+                { navController.navigate(Routes.VERIFY) }
             ) }
-            composable(Routes.REGISTER) { RegisterScreen(onRegistered = { navController.navigate(Routes.VERIFY) }) }
-            composable(Routes.VERIFY) { VerifyScreen(onVerified = { navController.navigate(Routes.LOGIN) { popUpTo(Routes.AUTH) { inclusive = false } } }) }
+            composable(Routes.REGISTER) { RegisterScreen(
+                { navController.navigate(Routes.VERIFY) }
+            ) }
+            composable(Routes.VERIFY) { VerifyScreen(
+                { navController.navigate(TopLevelDest.Home.route) { popUpTo(Routes.AUTH) { inclusive = true } } },
+                { navController.navigate(Routes.LOGIN) { popUpTo(Routes.AUTH) { inclusive = false } } }
+            ) }
             composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() }) }
         }
 

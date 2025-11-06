@@ -43,7 +43,7 @@ fun LoginScreen(
     val repo = remember { AppRepository.get(context) }
     val prefs = remember { PreferencesManager(context) }
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() } // Retained in case other parts use it later
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -56,8 +56,9 @@ fun LoginScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(androidx.compose.ui.res.stringResource(id = com.example.tuchanguito.R.string.app_name), color = PrimaryTextBlue) }) },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        topBar = { TopAppBar(title = { Text(androidx.compose.ui.res.stringResource(id = com.example.tuchanguito.R.string.app_name), color = PrimaryTextBlue) }) }
+        // Removed snackbarHost from Scaffold to avoid system-like transient message
+        // snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             Modifier
@@ -92,13 +93,13 @@ fun LoginScreen(
                             prefs.setRememberMe(remember)
                             onLoginSuccess()
                         } else {
-                            val msg = result.exceptionOrNull()?.message ?: "Error"
-                            snackbarHostState.showSnackbar(msg)
+                            val msg = result.exceptionOrNull()?.message ?: "Error de inicio de sesión"
+                            // Removed snackbarHostState.showSnackbar(msg)
                             error = msg
                         }
                     } catch (t: Throwable) {
-                        val msg = t.message ?: "Error"
-                        snackbarHostState.showSnackbar(msg)
+                        val msg = t.message ?: "Error de inicio de sesión"
+                        // Removed snackbarHostState.showSnackbar(msg)
                         error = msg
                     } finally {
                         isLoading = false

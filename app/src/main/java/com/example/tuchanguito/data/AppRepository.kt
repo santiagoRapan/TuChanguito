@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import retrofit2.HttpException // Added for HTTP status inspection
 
 /**
  * Simple repository coordinating Room DAOs for the app features.
@@ -58,7 +59,17 @@ class AppRepository private constructor(context: Context){
         val token = api.auth.login(CredentialsDTO(email, password)).token
         prefs.setAuthToken(token)
         Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
+    } catch (t: Throwable) {
+        // Map 401 Unauthorized to a friendly message for unregistered accounts or bad credentials
+        val friendlyMessage = when (t) {
+            is HttpException -> when (t.code()) {
+                401 -> "Cuenta no registrada"
+                else -> "Error de inicio de sesión (HTTP ${t.code()})"
+            }
+            else -> "Error de inicio de sesión"
+        }
+        Result.failure(IllegalStateException(friendlyMessage, t))
+    }
 
     suspend fun changePassword(old: String, new: String): Result<Unit> = try {
         api.auth.changePassword(com.example.tuchanguito.network.dto.PasswordChangeDTO(currentPassword = old, newPassword = new))

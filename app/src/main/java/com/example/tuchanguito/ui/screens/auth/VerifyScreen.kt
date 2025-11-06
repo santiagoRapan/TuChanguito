@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +49,7 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
             title = { Text("Verificar cuenta") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") } }
         )
-    } /* snackbarHost removed */ ) { padding ->
+    }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email a verificar") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
             Spacer(Modifier.height(8.dp))

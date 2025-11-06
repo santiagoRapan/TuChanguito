@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/app/src/main/java/com/example/tuchanguito/ui/navigation/IconsProbe.kt">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/app/src/main/java/com/example/tuchanguito/ui/navigation/IconsProbe.kt" />
+              <option name="originalContent" value="&#10;&#10;&#10;&#10;" />
+              <option name="updatedContent" value="// Archivo de prueba temporal para verificar disponibilidad de íconos de Material.&#10;// Ya no se utiliza y se deja intencionalmente vacío para evitar imports innecesarios." />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

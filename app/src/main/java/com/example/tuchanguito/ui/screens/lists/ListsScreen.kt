@@ -38,9 +38,14 @@ fun ListsScreen(onOpenList: (Long) -> Unit) {
     var editName by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Listas") }) }, snackbarHost = { SnackbarHost(hostState = snackbarHost) }, floatingActionButton = {
-        FloatingActionButton(onClick = { showCreate = true }) { Text("+") }
-    }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Listas") }) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHost) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showCreate = true }) { Text("+") }
+        },
+        contentWindowInsets = WindowInsets.systemBars
+    ) { padding ->
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
         Column(Modifier.fillMaxSize().then(scrollMod).padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

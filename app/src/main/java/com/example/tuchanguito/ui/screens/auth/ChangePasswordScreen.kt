@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +33,7 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
             title = { Text("Modificar contraseña") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") } }
         )
-    }) { padding ->
+    }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
             if (step == 1) {
                 Text("Verificá tu identidad")

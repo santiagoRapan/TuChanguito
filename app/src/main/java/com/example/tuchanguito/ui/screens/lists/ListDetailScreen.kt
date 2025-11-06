@@ -107,7 +107,8 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         snackbarHost = { SnackbarHost(hostState = snack) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
-        }
+        },
+        contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             // Group by local categoryId, falling back to remote product.category.id

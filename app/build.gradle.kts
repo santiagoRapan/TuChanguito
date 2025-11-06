@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.moshi.kotlin)
     // Material icons extended for ContentCopy icon
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.accompanist.systemuicontroller)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

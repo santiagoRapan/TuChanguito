@@ -56,7 +56,8 @@ fun PantryScreen() {
         snackbarHost = { SnackbarHost(snack) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
-        }
+        },
+        contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(

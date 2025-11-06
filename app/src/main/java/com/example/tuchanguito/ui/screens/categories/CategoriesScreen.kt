@@ -17,13 +17,13 @@ fun CategoriesScreen() {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Categorías") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("Categorías") }) }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") }, modifier = Modifier.weight(1f))
                 Button(onClick = { scope.launch { repo.upsertCategory(name.trim()) ; name = "" } }) { Text("Añadir") }
             }
-            Divider(Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             categories.forEach { c -> ListItem(headlineContent = { Text(c.name) }) }
         }
     }

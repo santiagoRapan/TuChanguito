@@ -43,7 +43,10 @@ fun HomeScreen(
         repo.itemsForList(active.id).collectAsState(initial = emptyList())
     } else remember { mutableStateOf(emptyList()) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) },
+        contentWindowInsets = WindowInsets.systemBars
+    ) { padding ->
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
         Column(Modifier.fillMaxSize().then(scrollMod).padding(padding).padding(16.dp)) {

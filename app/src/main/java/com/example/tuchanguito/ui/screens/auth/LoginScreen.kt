@@ -36,6 +36,8 @@ import com.example.tuchanguito.data.PreferencesManager
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
 import com.example.tuchanguito.ui.theme.ButtonBlue
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +66,8 @@ fun LoginScreen(
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(androidx.compose.ui.res.stringResource(id = com.example.tuchanguito.R.string.app_name), color = PrimaryTextBlue) }) }
+        topBar = { TopAppBar(title = { Text(androidx.compose.ui.res.stringResource(id = com.example.tuchanguito.R.string.app_name), color = PrimaryTextBlue) }) },
+        contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(
             Modifier

@@ -78,9 +78,15 @@ fun ProductsScreen() {
                 Icon(Icons.Default.Add, contentDescription = "Nuevo producto")
             }
         },
-        contentWindowInsets = WindowInsets(0)
+        contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Búsqueda
             OutlinedTextField(
                 value = query,

@@ -47,6 +47,9 @@ class AppRepository private constructor(context: Context){
     // Mutex for serializing pantry.getItems() calls
     private val pantryGetMutex = Mutex()
 
+    // Mutex for serializing pantry ID resolution/creation
+    private val ensurePantryIdMutex = Mutex()
+
     // Auth (local)
     suspend fun register(email: String, password: String, displayName: String): Result<Unit> = try {
         // Remote first (adjust names/surnames as needed)
@@ -479,14 +482,27 @@ class AppRepository private constructor(context: Context){
         }.getOrDefault(false)
     }
 
-    suspend fun ensureDefaultPantryId(): Long {
+    suspend fun ensureDefaultPantryId(): Long = ensurePantryIdMutex.withLock {
         // Evitar llamadas repetidas: si tenemos cache en memoria, devolverla
-        cachedPantryId?.let { return it }
-        // Intentar recuperar la última alacena usada sin sondear el endpoint de items
+        cachedPantryId?.let { return@withLock it }
+        // Intentar recuperar la última alacena usada; validar que exista en backend
         val saved = runCatching { prefs.currentPantryId.first() }.getOrNull()
         if (saved != null) {
-            cachedPantryId = saved
-            return saved
+            val ok = runCatching { isPantryUsable(saved) }.getOrDefault(false)
+            if (ok) {
+                cachedPantryId = saved
+                return@withLock saved
+            } else {
+                // ID inválido en backend (p.ej., DB reseteada): crear una nueva y persistir
+                val fresh = runCatching { createFreshPantry() }.getOrElse {
+                    // Nombre alternativo para evitar conflicto si ya existe
+                    api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena ${System.currentTimeMillis() % 10000}"))
+                        .id
+                }
+                runCatching { prefs.setCurrentPantryId(fresh) }
+                cachedPantryId = fresh
+                return@withLock fresh
+            }
         }
         // No hay guardada: crear una nueva alacena inmediatamente (evitamos escanear y sondear)
         val created = runCatching { api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena")) }
@@ -496,7 +512,7 @@ class AppRepository private constructor(context: Context){
             }
         runCatching { prefs.setCurrentPantryId(created.id) }
         cachedPantryId = created.id
-        return created.id
+        return@withLock created.id
     }
 
     private suspend fun createFreshPantry(): Long {
@@ -512,11 +528,11 @@ class AppRepository private constructor(context: Context){
     }
 
     suspend fun syncPantry(search: String? = null, categoryId: Long? = null) {
-        val pantryId = ensureDefaultPantryId()
-        suspend fun attempt() = runCatching {
+        var pantryId = ensureDefaultPantryId()
+        suspend fun attempt(id: Long) = runCatching {
             pantryGetMutex.withLock {
                 api.pantry.getItems(
-                    pantryId,
+                    id,
                     search = search,
                     categoryId = categoryId,
                     page = 1,
@@ -526,11 +542,24 @@ class AppRepository private constructor(context: Context){
                 )
             }
         }.getOrNull()
-        var page = attempt()
+        var page = attempt(pantryId)
         if (page == null) {
-            // brief retry for transient DB/savepoint issues
-            delay(200)
-            page = attempt()
+            // Si falla (404 típico por ID inválido tras reset del backend), recrear y reintentar una vez
+            val usable = runCatching { isPantryUsable(pantryId) }.getOrDefault(false)
+            if (!usable) {
+                val fresh = runCatching { createFreshPantry() }.getOrElse {
+                    api.pantry.createPantry(com.example.tuchanguito.network.dto.PantryCreateDTO(name = "Alacena ${System.currentTimeMillis() % 10000}"))
+                        .id
+                }
+                runCatching { prefs.setCurrentPantryId(fresh) }
+                cachedPantryId = fresh
+                pantryId = fresh
+                page = attempt(fresh)
+            } else {
+                // brief retry for transients
+                delay(200)
+                page = attempt(pantryId)
+            }
         }
         if (page == null) return
         val items = page.data

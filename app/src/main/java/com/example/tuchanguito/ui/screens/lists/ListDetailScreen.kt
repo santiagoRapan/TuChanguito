@@ -280,13 +280,14 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     if (showAdd) {
         AddItemDialog(
             products = products,
+            categories = categories.map { it.name },
             onDismiss = { showAdd = false },
             onAdd = { productId, name, price, unit, categoryName ->
                 scope.launch {
                     try {
                         val chosenProductId: Long = productId ?: run {
                             val catId = categoryName?.let { if (it.isNotBlank()) repo.createOrFindCategoryByName(it) else null }
-                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
+                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "", catId)
                         }
                         if (productId != null) {
                             val existing = products.firstOrNull { it.id == productId }
@@ -301,12 +302,12 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                     id = productId,
                                     name = name ?: existing?.name ?: "",
                                     price = price ?: existing?.price ?: 0.0,
-                                    unit = unit ?: existing?.unit ?: "u",
+                                    unit = unit ?: existing?.unit ?: "",
                                     categoryId = catId
                                 )
                             }
                         }
-                        val fallbackUnit = products.firstOrNull { it.id == chosenProductId }?.unit?.ifBlank { "u" } ?: "u"
+                        val fallbackUnit = products.firstOrNull { it.id == chosenProductId }?.unit?.ifBlank { "" } ?: ""
                         val safeUnitForItem = (unit?.takeIf { it.isNotBlank() } ?: fallbackUnit)
                         repo.addItemRemote(listId, chosenProductId, 1, safeUnitForItem)
                         // Single remote refresh for fallback
@@ -438,6 +439,7 @@ private fun ListRow(
 @Composable
 private fun AddItemDialog(
     products: List<Product>,
+    categories: List<String>,
     onDismiss: () -> Unit,
     onAdd: (productId: Long?, name: String?, price: Double?, unit: String?, categoryName: String?) -> Unit,
     onPrefillFor: (Long) -> Product?,
@@ -446,20 +448,25 @@ private fun AddItemDialog(
     var name by remember { mutableStateOf("") }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var priceText by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("u") }
+    var unit by remember { mutableStateOf("") } // default empty, user must enter
     var category by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
 
     fun prefillFrom(product: Product) {
         name = product.name
         priceText = if (product.price != 0.0) product.price.toString() else ""
-        unit = product.unit.ifBlank { "u" }
+        unit = product.unit // don’t force "u"; keep as-is
         category = categoryNameFor(product.id) ?: ""
     }
 
     val suggestions = remember(name, products) {
         val q = name.trim()
         if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(8)
+    }
+
+    val categorySuggestions = remember(category, categories) {
+        val q = category.trim()
+        if (q.isBlank()) emptyList() else categories.filter { it.contains(q, ignoreCase = true) }.take(8)
     }
 
     AlertDialog(
@@ -500,7 +507,7 @@ private fun AddItemDialog(
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Precio (opcional)") },
+                    label = { Text("Precio") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -513,9 +520,14 @@ private fun AddItemDialog(
                 OutlinedTextField(
                     value = category,
                     onValueChange = { category = it },
-                    label = { Text("Categoría (opcional)") },
+                    label = { Text("Categoría") },
                     singleLine = true
                 )
+                if (categorySuggestions.isNotEmpty()) {
+                    categorySuggestions.forEach { cName ->
+                        TextButton(onClick = { category = cName }) { Text(cName) }
+                    }
+                }
             }
         }
     )

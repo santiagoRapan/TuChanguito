@@ -176,7 +176,11 @@ fun LoginScreen(
                             textAlign = TextAlign.Center
                         )
                     }
-                    TextButton(onClick = onRegister, enabled = !isLoading) {
+                    TextButton(
+                        onClick = onRegister,
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
                             text = buildAnnotatedString {
                                 append("¿No tenes cuenta? ")
@@ -184,7 +188,9 @@ fun LoginScreen(
                                     append("Crear cuenta.")
                                 }
                             },
-                            color = ColorPrimary
+                            color = ColorPrimary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
                     }
                     TextButton(
@@ -197,8 +203,16 @@ fun LoginScreen(
                                 onVerifyAccount()
                             }
                         },
-                        enabled = !isLoading && isEmailValid
-                    ) { Text("Verificar cuenta", color = ColorPrimary) }
+                        enabled = !isLoading && isEmailValid,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Verificar cuenta",
+                            color = ColorPrimary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Si ya te registraste pero no verificaste tu cuenta, ingresá tu email y presioná Verificar cuenta",

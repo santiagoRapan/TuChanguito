@@ -35,7 +35,19 @@ fun PantryScreen() {
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
 
-    // Cargar ítems cuando cambien query o categoría
+    // Backend-driven categories for chips (stable for current search)
+    var chipCategories by remember { mutableStateOf<List<Pair<Long, String>>>(emptyList()) }
+
+    // Load categories for current search text
+    LaunchedEffect(query) {
+        val list = runCatching { repo.pantryCategoriesForQuery(query.ifBlank { null }) }.getOrDefault(emptyList())
+        chipCategories = list.mapNotNull { it.id?.let { id -> id to it.name } }
+        if (selectedCategoryId != null && chipCategories.none { it.first == selectedCategoryId }) {
+            selectedCategoryId = null
+        }
+    }
+
+    // Sync pantry items when search or selected category changes
     LaunchedEffect(query, selectedCategoryId) {
         runCatching { repo.syncPantry(search = query.ifBlank { null }, categoryId = selectedCategoryId) }
     }
@@ -43,9 +55,7 @@ fun PantryScreen() {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Alacena") }) },
         snackbarHost = { SnackbarHost(snack) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) }
-        },
+        floatingActionButton = { FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) } },
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -58,60 +68,32 @@ fun PantryScreen() {
             )
 
             val productById = remember(products) { products.associateBy { it.id } }
-            val categoryById = remember(categories) { categories.associateBy { it.id } }
-            val chipCategories by remember(pantryItems, products, categories, query) {
-                mutableStateOf(run {
-                    val q = query.trim().lowercase()
-                    val matches = pantryItems.filter { pi ->
-                        val pn = productById[pi.productId]?.name?.lowercase().orEmpty()
-                        q.isBlank() || pn.contains(q)
-                    }
-                    val ids = LinkedHashSet<Long>()
-                    matches.forEach { pi -> productById[pi.productId]?.categoryId?.let { ids.add(it) } }
-                    ids.mapNotNull { id -> categoryById[id]?.let { id to it.name } }
-                        .sortedBy { it.second.lowercase() }
-                })
-            }
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
-                    FilterChip(selected = selectedCategoryId == null, onClick = {
-                        selectedCategoryId = null
-                    }, label = { Text("Todas") })
+                    FilterChip(selected = selectedCategoryId == null, onClick = { selectedCategoryId = null }, label = { Text("Todas") })
                 }
                 items(chipCategories.size) { i ->
                     val (id, name) = chipCategories[i]
-                    FilterChip(selected = selectedCategoryId == id, onClick = {
-                        selectedCategoryId = id
-                    }, label = { Text(name) })
+                    FilterChip(selected = selectedCategoryId == id, onClick = { selectedCategoryId = id }, label = { Text(name) })
                 }
             }
 
             HorizontalDivider()
 
-            val filteredPantry = pantryItems
-
             LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 88.dp)) {
-                if (filteredPantry.isEmpty()) {
+                if (pantryItems.isEmpty()) {
                     item { Text("Sin productos en la alacena", style = MaterialTheme.typography.bodyMedium) }
                 } else {
-                    items(filteredPantry.size) { idx ->
-                        val pi = filteredPantry[idx]
+                    items(pantryItems.size) { idx ->
+                        val pi = pantryItems[idx]
                         val p = productById[pi.productId]
                         PantryRow(
                             name = p?.name ?: "Producto",
                             unit = p?.unit?.ifBlank { "u" } ?: "u",
                             quantity = pi.quantity,
-                            onInc = {
-                                scope.launch {
-                                    repo.updatePantryItem(pi.id, pi.quantity + 1)
-                                }
-                            },
-                            onDec = {
-                                if (pi.quantity > 1) scope.launch {
-                                    repo.updatePantryItem(pi.id, pi.quantity - 1)
-                                }
-                            },
+                            onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1) } },
+                            onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1) } },
                             onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
                         )
                         HorizontalDivider()
@@ -145,7 +127,6 @@ fun PantryScreen() {
                             val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
                             repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
                         }
-                        // Use addOrIncrement to avoid 409 and crashes if already exists
                         repo.addOrIncrementPantryItem(finalProductId, addQuantity = 1, unit = unit ?: "u")
                         runCatching { repo.syncPantry() }
                         showAdd = false

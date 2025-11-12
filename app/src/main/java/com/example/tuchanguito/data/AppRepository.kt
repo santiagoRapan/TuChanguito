@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException // Added for HTTP status inspection
 
 /**
@@ -39,6 +42,9 @@ class AppRepository private constructor(context: Context){
     // In-memory source of truth for lists fetched from API
     private val _remoteLists = MutableStateFlow<List<ShoppingList>>(emptyList())
     val remoteLists = _remoteLists.asStateFlow()
+
+    // Mutex for serializing pantry.getItems() calls
+    private val pantryGetMutex = Mutex()
 
     // Auth (local)
     suspend fun register(email: String, password: String, displayName: String): Result<Unit> = try {
@@ -505,19 +511,29 @@ class AppRepository private constructor(context: Context){
     }
 
     suspend fun syncPantry(search: String? = null, categoryId: Long? = null) {
-        var pantryId = ensureDefaultPantryId()
-        // Reset local mirror before rehydrating from server to avoid stale/corrupt rows from a previous pantry
-        runCatching { pantryDao.clearAll() }
-        var page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000, sortBy = "productName", order = "DESC") }.getOrNull()
+        val pantryId = ensureDefaultPantryId()
+        suspend fun attempt() = runCatching {
+            pantryGetMutex.withLock {
+                api.pantry.getItems(
+                    pantryId,
+                    search = search,
+                    categoryId = categoryId,
+                    page = 1,
+                    perPage = 1000,
+                    sortBy = "productName",
+                    order = "DESC"
+                )
+            }
+        }.getOrNull()
+        var page = attempt()
         if (page == null) {
-            // The selected pantry is not usable (backend 500). Create a fresh pantry and retry once.
-            pantryId = runCatching { createFreshPantry() }.getOrElse { pantryId }
-            runCatching { prefs.setCurrentPantryId(pantryId) }
-            page = runCatching { api.pantry.getItems(pantryId, search = search, categoryId = categoryId, page = 1, perPage = 1000, sortBy = "productName", order = "DESC") }.getOrNull()
-            if (page == null) return // fail silently to avoid crashing UI
+            // brief retry for transient DB/savepoint issues
+            delay(200)
+            page = attempt()
         }
+        if (page == null) return
         val items = page.data
-        // Upsert products/categories and mirror pantry items
+        runCatching { pantryDao.clearAll() }
         items.forEach { it ->
             val p = it.product
             val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
@@ -529,51 +545,132 @@ class AppRepository private constructor(context: Context){
         }
     }
 
-    suspend fun addPantryItem(productId: Long, quantity: Int, unit: String = "u") {
+    // --- Pantry helpers for backend-driven filtering ---
+    suspend fun pantryCategoriesForQuery(name: String?): List<com.example.tuchanguito.network.dto.CategoryDTO> {
         val pantryId = ensureDefaultPantryId()
-        val created = api.pantry.addItem(pantryId, com.example.tuchanguito.network.dto.PantryItemCreateDTO(product = com.example.tuchanguito.network.dto.IdRef(productId), quantity = quantity.toDouble(), unit = unit))
-        // Upsert related product/category then mirror item
-        created.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-        val pPrice = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-        val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
-        productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
-        pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
+        val remote = runCatching {
+            pantryGetMutex.withLock {
+                api.pantry.getItems(
+                    pantryId,
+                    search = name?.takeIf { it.isNotBlank() },
+                    categoryId = null,
+                    page = 1,
+                    perPage = 1000,
+                    sortBy = "productName",
+                    order = "ASC"
+                )
+            }
+        }.getOrNull()
+        if (remote != null) {
+            val distinct = LinkedHashMap<Long, com.example.tuchanguito.network.dto.CategoryDTO>()
+            remote.data.forEach { it ->
+                val c = it.product.category
+                val id = c?.id
+                if (id != null && !distinct.containsKey(id)) {
+                    distinct[id] = com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = c.name, metadata = c.metadata)
+                }
+            }
+            return distinct.values.toList().sortedBy { it.name.lowercase() }
+        }
+        // Fallback: derive from local snapshot to keep chips visible on API errors
+        val q = name?.trim()?.lowercase().orEmpty()
+        val localItems = runCatching { pantryDao.observeAll().first() }.getOrDefault(emptyList())
+        val localProducts = runCatching { productDao.observeAll().first() }.getOrDefault(emptyList())
+        val localCategories = runCatching { categoryDao.observeAll().first() }.getOrDefault(emptyList())
+        val productById = localProducts.associateBy { it.id }
+        val categoryById = localCategories.associateBy { it.id }
+        val ids = LinkedHashSet<Long>()
+        localItems.forEach { pi ->
+            val p = productById[pi.productId]
+            val matches = q.isBlank() || (p?.name?.lowercase()?.contains(q) == true)
+            if (matches) p?.categoryId?.let { ids.add(it) }
+        }
+        return ids.mapNotNull { id ->
+            val cat = categoryById[id] ?: return@mapNotNull null
+            com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = cat.name, metadata = emptyMap())
+        }.sortedBy { it.name.lowercase() }
     }
 
-    // Add-or-increment pantry item if a row for the same product already exists
+    suspend fun resendVerificationCode(email: String): Result<Unit> = try {
+        api.auth.sendVerification(email)
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        Result.failure(t)
+    }
+
+    // Validate credentials without persisting token (used to confirm current password)
+    suspend fun validateCredentials(email: String, password: String): Result<Unit> = try {
+        api.auth.login(CredentialsDTO(email, password))
+        Result.success(Unit)
+    } catch (t: Throwable) { Result.failure(t) }
+
+    // Share a shopping list with another user by email
+    suspend fun shareListRemote(listId: Long, email: String) {
+        val dto = api.shopping.shareList(listId, com.example.tuchanguito.network.dto.ShareRequestDTO(email))
+        // Keep local title in sync (id/name returned is the same list)
+        listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
+        runCatching { refreshLists() }
+    }
+
+    // Pantry: add or increment quantity of an item by product id
     suspend fun addOrIncrementPantryItem(productId: Long, addQuantity: Int, unit: String = "u") {
-        // First ensure we have current pantry snapshot locally
-        runCatching { syncPantry() }
+        // Try to use local snapshot first
         val existing = pantryDao.findByProduct(productId)
         if (existing != null) {
-            // Update quantity via API using existing item id
             updatePantryItem(existing.id, existing.quantity + addQuantity, unit)
-        } else {
-            addPantryItem(productId, addQuantity, unit)
+            return
+        }
+        // Not found locally: try create remotely, and on 409 fallback to update-after-sync
+        val pantryId = ensureDefaultPantryId()
+        try {
+            val created = api.pantry.addItem(
+                pantryId,
+                com.example.tuchanguito.network.dto.PantryItemCreateDTO(
+                    product = com.example.tuchanguito.network.dto.IdRef(productId),
+                    quantity = addQuantity.toDouble(),
+                    unit = unit
+                )
+            )
+            created.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+            val pPrice = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+            val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
+            productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
+            pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
+        } catch (t: Throwable) {
+            val code = (t as? retrofit2.HttpException)?.code()
+            if (code == 409) {
+                // Exists remotely: refresh local mirror and then update by summing quantity
+                runCatching { syncPantry() }
+                val remoteExisting = pantryDao.findByProduct(productId)
+                if (remoteExisting != null) {
+                    updatePantryItem(remoteExisting.id, remoteExisting.quantity + addQuantity, unit)
+                } else {
+                    throw t
+                }
+            } else {
+                throw t
+            }
         }
     }
 
+    // Pantry: update quantity (and unit if provided)
     suspend fun updatePantryItem(itemId: Long, quantity: Int, unit: String = "u") {
         val pantryId = ensureDefaultPantryId()
-        val updated = api.pantry.updateItem(pantryId, itemId, com.example.tuchanguito.network.dto.PantryItemUpdateDTO(quantity = quantity.toDouble(), unit = unit))
+        val updated = api.pantry.updateItem(
+            pantryId,
+            itemId,
+            com.example.tuchanguito.network.dto.PantryItemUpdateDTO(quantity = quantity.toDouble(), unit = unit)
+        )
         pantryDao.upsert(PantryItem(id = updated.id, productId = updated.product.id ?: 0L, quantity = updated.quantity.toInt()))
     }
 
+    // Pantry: delete an item
     suspend fun deletePantryItem(itemId: Long) {
         val pantryId = ensureDefaultPantryId()
-        runCatching { api.pantry.deleteItem(pantryId, itemId) }
-            .onFailure { throw it }
-        // Clean local row safely by id
+        runCatching { api.pantry.deleteItem(pantryId, itemId) }.onFailure { throw it }
         runCatching { pantryDao.deleteById(itemId) }
-        // Refresh to ensure UI consistent
         runCatching { syncPantry() }
     }
-
-    // Validate Credentials
-    suspend fun validateCredentials(email: String, password: String): Result<Unit> = try {
-        api.auth.login(com.example.tuchanguito.network.dto.CredentialsDTO(email, password))
-        Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
 
     // --- Backend-driven product search helpers for ProductsScreen ---
     suspend fun searchProductsDTO(name: String?, categoryId: Long?): List<ProductDTO> {
@@ -586,49 +683,10 @@ class AppRepository private constructor(context: Context){
         val distinct = LinkedHashMap<Long, CategoryDTO>()
         page.data.forEach { p ->
             val c = p.category
-            if (c?.id != null && !distinct.containsKey(c.id!!)) distinct[c.id!!] = CategoryDTO(id = c.id, name = c.name, metadata = c.metadata)
-        }
-        return distinct.values.toList().sortedBy { it.name.lowercase() }
-    }
-
-    // --- New: share shopping list with user by email ---
-    suspend fun shareListRemote(listId: Long, email: String) {
-        val dto = api.shopping.shareList(listId, com.example.tuchanguito.network.dto.ShareRequestDTO(email))
-        // Update local Room title (still the same name) and refresh remote lists so the shared user view is consistent
-        listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
-        runCatching { refreshLists() }
-    }
-
-    // --- Pantry helpers for backend-driven filtering ---
-    suspend fun pantryCategoriesForQuery(name: String?): List<com.example.tuchanguito.network.dto.CategoryDTO> {
-        val pantryId = ensureDefaultPantryId()
-        val page = runCatching {
-            api.pantry.getItems(
-                pantryId,
-                search = name?.takeIf { it.isNotBlank() },
-                categoryId = null,
-                page = 1,
-                perPage = 1000,
-                sortBy = "productName",
-                order = "ASC"
-            )
-        }.getOrNull()
-        val distinct = LinkedHashMap<Long, com.example.tuchanguito.network.dto.CategoryDTO>()
-        page?.data.orEmpty().forEach { it ->
-            val c = it.product.category
             val id = c?.id
-            if (id != null && !distinct.containsKey(id)) {
-                distinct[id] = com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = c.name, metadata = c.metadata)
-            }
+            if (id != null && !distinct.containsKey(id)) distinct[id] = CategoryDTO(id = id, name = c.name, metadata = c.metadata)
         }
         return distinct.values.toList().sortedBy { it.name.lowercase() }
-    }
-
-    suspend fun resendVerificationCode(email: String): Result<Unit> = try {
-        api.auth.sendVerification(email)
-        Result.success(Unit)
-    } catch (t: Throwable) {
-        Result.failure(t)
     }
 
     companion object {

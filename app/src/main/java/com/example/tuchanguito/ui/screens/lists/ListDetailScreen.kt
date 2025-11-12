@@ -1,6 +1,7 @@
 package com.example.tuchanguito.ui.screens.lists
 
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
@@ -30,6 +32,8 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,7 +120,9 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         },
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
+        Column(Modifier.fillMaxSize().then(scrollMod).padding(padding)) {
             // Group by local categoryId, falling back to remote product.category.id
             val grouped = remember(uiProducts, products, remoteItems) {
                 uiProducts.groupBy { pid ->

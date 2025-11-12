@@ -13,6 +13,9 @@ import kotlinx.coroutines.launch
 import android.content.res.Configuration
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +46,15 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Perfil") }) }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
-        Column(Modifier.fillMaxSize().then(scrollMod).padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .then(scrollMod)
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Profile info
             Text("Datos de usuario", style = MaterialTheme.typography.titleMedium)
             if (loading) { CircularProgressIndicator() }
@@ -76,7 +87,7 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             Text("Personalización")
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

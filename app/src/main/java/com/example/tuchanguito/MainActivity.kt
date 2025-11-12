@@ -29,6 +29,21 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +71,9 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     var currentDestination by rememberSaveable { mutableStateOf<TopLevelDest?>(null) }
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val layoutType = if (isLandscape) NavigationSuiteType.NavigationRail else NavigationSuiteType.NavigationBar
+
     if (authToken.isNullOrEmpty()) {
         AppNavGraph(
             navController = navController,
@@ -63,26 +81,60 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize()
         )
     } else {
-        NavigationSuiteScaffold(
-            navigationSuiteItems = {
-                listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
-                    item(
-                        icon = { Icon(dest.icon, contentDescription = dest.label, tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
-                        label = { Text(dest.label, color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
-                        selected = currentDestination?.route == dest.route,
-                        onClick = {
-                            currentDestination = dest
-                            navController.navigate(dest.route) { launchSingleTop = true }
-                        }
+        // In landscape show an explicit NavigationRail on the left; in portrait keep the adaptive bottom navigation
+        if (isLandscape) {
+            // Determine layout direction to know which side is Start/End
+            val layoutDirection = LocalLayoutDirection.current
+            // If layoutDirection==LTR, Start is left; if RTL, Start is right
+            // We'll apply displayCutout padding on the rail side (Start)
+            Row(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))) {
+                NavigationRail(modifier = Modifier.fillMaxHeight().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))) {
+                    listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
+                        val selected = currentDestination?.route == dest.route
+                        NavigationRailItem(
+                            selected = selected,
+                            onClick = {
+                                currentDestination = dest
+                                navController.navigate(dest.route) { launchSingleTop = true }
+                            },
+                            icon = { Icon(dest.icon, contentDescription = dest.label) },
+                            label = { Text(dest.label) }
+                        )
+                    }
+                }
+                // Content area: apply displayCutout padding on the opposite side as well to prevent overlap
+                val contentPadding = WindowInsets.displayCutout.only(WindowInsetsSides.End)
+                Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(contentPadding)) {
+                    AppNavGraph(
+                        navController = navController,
+                        startDestination = TopLevelDest.Home.route,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
-        ) {
-            AppNavGraph(
-                navController = navController,
-                startDestination = TopLevelDest.Home.route,
-                modifier = Modifier.fillMaxSize()
-            )
+        } else {
+            NavigationSuiteScaffold(
+                layoutType = layoutType,
+                navigationSuiteItems = {
+                    listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
+                        item(
+                            icon = { Icon(dest.icon, contentDescription = dest.label, tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
+                            label = { Text(dest.label, color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
+                            selected = currentDestination?.route == dest.route,
+                            onClick = {
+                                currentDestination = dest
+                                navController.navigate(dest.route) { launchSingleTop = true }
+                            }
+                        )
+                    }
+                }
+            ) {
+                AppNavGraph(
+                    navController = navController,
+                    startDestination = TopLevelDest.Home.route,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }

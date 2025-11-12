@@ -1,7 +1,6 @@
 package com.example.tuchanguito.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -15,24 +14,24 @@ import androidx.compose.ui.platform.LocalContext
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
+    primary = ColorPrimary,
+    secondary = ColorSecondary,
+    tertiary = ColorAccent,
     background = Color(0xFF0B1A26),
     surface = Color(0xFF0B1A26),
-    onBackground = Color(0xFFFFFFFF),
-    onSurface = Color(0xFFFFFFFF)
+    onBackground = Color.White,
+    onSurface = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
+    primary = ColorPrimary,
+    secondary = ColorSecondary,
+    tertiary = ColorAccent,
 
-    background = AppBackground,
-    surface = AppSurface,
-    onBackground = OnBackground,
-    onSurface = OnSurface,
+    background = ColorBackground,
+    surface = ColorSurface,
+    onBackground = ColorTextForm,
+    onSurface = ColorTextForm,
 
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer
@@ -40,8 +39,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun TuChanguitoTheme(
-    darkTheme: Boolean = false, // default to light theme for the app
-    // Dynamic color is available on Android 12+
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -50,12 +48,10 @@ fun TuChanguitoTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
-    // System UI (status/navigation bars) synced with theme background
     val systemUiController = rememberSystemUiController()
     val bg = colorScheme.background
     val darkIcons = bg.luminance() > 0.5f

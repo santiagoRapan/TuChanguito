@@ -13,15 +13,18 @@ import com.example.tuchanguito.network.dto.IdRef
 import com.example.tuchanguito.network.dto.ListItemDTO
 import com.example.tuchanguito.network.dto.PantryItemDTO
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException // Added for HTTP status inspection
 import androidx.room.withTransaction
+
+private const val DEFAULT_LOW_STOCK_THRESHOLD = 2
 
 /**
  * Simple repository coordinating Room DAOs for the app features.
@@ -49,6 +52,57 @@ class AppRepository private constructor(context: Context){
 
     // Mutex for serializing pantry ID resolution/creation
     private val ensurePantryIdMutex = Mutex()
+
+    private fun extractPrice(metadata: Map<String, Any>?, fallback: Double = 0.0): Double {
+        val raw = metadata?.get("price")
+        return when (raw) {
+            is Number -> raw.toDouble()
+            is String -> raw.toDoubleOrNull() ?: fallback
+            else -> fallback
+        }
+    }
+
+    private fun extractUnit(metadata: Map<String, Any>?, fallback: String = ""): String {
+        val raw = metadata?.get("unit")
+        val candidate = (raw as? String)?.trim().orEmpty()
+        return if (candidate.isNotEmpty()) candidate else fallback
+    }
+
+    private fun extractThreshold(metadata: Map<String, Any>?, fallback: Int = DEFAULT_LOW_STOCK_THRESHOLD): Int {
+        val raw = metadata?.get("lowStockThreshold")
+        val value = when (raw) {
+            is Number -> raw.toInt()
+            is String -> raw.toIntOrNull()
+            else -> null
+        }
+        return value?.takeIf { it > 0 } ?: fallback
+    }
+
+    private suspend fun ProductDTO.toModel(existing: Product? = null): Product {
+        var categoryId = this.category?.id ?: existing?.categoryId
+        var price = extractPrice(this.metadata, existing?.price ?: 0.0)
+        var unit = extractUnit(this.metadata, existing?.unit ?: "")
+        var threshold = extractThreshold(this.metadata, existing?.lowStockThreshold ?: DEFAULT_LOW_STOCK_THRESHOLD)
+
+        if ((categoryId == null || unit.isBlank()) && (this.id != null)) {
+            runCatching { api.catalog.getProduct(this.id!!) }.onSuccess { full ->
+                categoryId = full.category?.id ?: categoryId
+                price = extractPrice(full.metadata, price)
+                val fetchedUnit = extractUnit(full.metadata, unit)
+                if (unit.isBlank() && fetchedUnit.isNotBlank()) unit = fetchedUnit
+                threshold = extractThreshold(full.metadata, threshold)
+            }
+        }
+
+        return Product(
+            id = this.id ?: existing?.id ?: 0L,
+            name = this.name,
+            price = price,
+            categoryId = categoryId,
+            unit = unit.ifBlank { existing?.unit ?: "" },
+            lowStockThreshold = threshold
+        )
+    }
 
     // Auth (local)
     suspend fun register(email: String, password: String, displayName: String): Result<Unit> = try {
@@ -129,10 +183,10 @@ class AppRepository private constructor(context: Context){
         // Products
         val prodPage = api.catalog.getProducts(page = 1, perPage = 1000)
         prodPage.data.forEach { p ->
-            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val unit = (p.metadata?.get("unit") as? String).orEmpty()
-            val catId = p.category?.id
-            productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unit))
+            val cached = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
+            val model = p.toModel(cached)
+            p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+            productDao.upsert(model)
         }
         Result.success(Unit)
     } catch (t: Throwable) { Result.failure(t) }
@@ -168,7 +222,11 @@ class AppRepository private constructor(context: Context){
             ProductRegistrationDTO(
                 name = name,
                 category = finalCatId?.let { IdRef(it) },
-                metadata = mapOf("price" to price, "unit" to unit)
+                metadata = mapOf(
+                    "price" to price,
+                    "unit" to unit,
+                    "lowStockThreshold" to DEFAULT_LOW_STOCK_THRESHOLD
+                )
             )
         )
         if (!resp.isSuccessful) {
@@ -176,11 +234,11 @@ class AppRepository private constructor(context: Context){
             val page = runCatching { api.catalog.getProducts(name = name, page = 1, perPage = 1) }.getOrNull()
             val existing = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
             if (existing != null) {
-                val exId = existing.id ?: 0L
-                val pPrice = (existing.metadata?.get("price") as? Number)?.toDouble() ?: price
-                val pUnit = (existing.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
-                productDao.upsert(Product(id = exId, name = existing.name, price = pPrice, categoryId = existing.category?.id, unit = pUnit))
-                return exId
+                val cached = runCatching { productDao.getById(existing.id ?: 0L) }.getOrNull()
+                val model = existing.toModel(cached)
+                existing.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+                productDao.upsert(model)
+                return model.id
             }
             throw IllegalStateException("Error creando producto: HTTP ${'$'}{resp.code()}")
         }
@@ -188,23 +246,27 @@ class AppRepository private constructor(context: Context){
         val page = runCatching { api.catalog.getProducts(name = name, page = 1, perPage = 1) }.getOrNull()
         val dto = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
             ?: throw IllegalStateException("Producto creado pero no encontrado por nombre")
-        val pId = dto.id ?: 0L
-        val pCatId = dto.category?.id
-        val pPrice = (dto.metadata?.get("price") as? Number)?.toDouble() ?: price
-        val pUnit = (dto.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
-        productDao.upsert(Product(id = pId, name = dto.name, price = pPrice, categoryId = pCatId, unit = pUnit))
+        val cached = runCatching { productDao.getById(dto.id ?: 0L) }.getOrNull()
+        val model = dto.toModel(cached)
+        dto.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+        productDao.upsert(model)
         // Ensure list shows all current remote products
         syncProducts()
-        return pId
+        return model.id
     }
 
     suspend fun updateProductRemote(id: Long, name: String, price: Double, unit: String, categoryId: Long?) {
+        val existing = runCatching { productDao.getById(id) }.getOrNull()
         val resp = api.catalog.updateProduct(
             id,
             ProductRegistrationDTO(
                 name = name,
                 category = categoryId?.let { IdRef(it) },
-                metadata = mapOf("price" to price, "unit" to unit)
+                metadata = mapOf(
+                    "price" to price,
+                    "unit" to unit,
+                    "lowStockThreshold" to (existing?.lowStockThreshold ?: DEFAULT_LOW_STOCK_THRESHOLD)
+                )
             )
         )
         if (!resp.isSuccessful) {
@@ -212,11 +274,22 @@ class AppRepository private constructor(context: Context){
         }
         // Regardless of body, fetch latest from server to ensure final state matches backend rules
         val server = runCatching { api.catalog.getProduct(id) }.getOrNull()
-        val pCatId = server?.category?.id ?: categoryId
-        val pPrice = (server?.metadata?.get("price") as? Number)?.toDouble() ?: price
-        val pUnit = (server?.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
-        val pName = server?.name ?: name
-        productDao.upsert(Product(id = id, name = pName, price = pPrice, categoryId = pCatId, unit = pUnit))
+        if (server != null) {
+            val model = server.toModel(existing)
+            server.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+            productDao.upsert(model)
+        } else {
+            productDao.upsert(
+                Product(
+                    id = id,
+                    name = name,
+                    price = price,
+                    categoryId = categoryId,
+                    unit = unit,
+                    lowStockThreshold = existing?.lowStockThreshold ?: DEFAULT_LOW_STOCK_THRESHOLD
+                )
+            )
+        }
         // Refresh full list to avoid partial state
         syncProducts()
     }
@@ -232,10 +305,10 @@ class AppRepository private constructor(context: Context){
         runCatching { api.catalog.getProducts(page = 1, perPage = 1000) }
             .onSuccess { page ->
                 page.data.forEach { p ->
-                    val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                    val unit = (p.metadata?.get("unit") as? String).orEmpty()
-                    val catId = p.category?.id
-                    productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unit))
+                    val cached = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
+                    val model = p.toModel(cached)
+                    p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+                    productDao.upsert(model)
                 }
             }
     }
@@ -321,29 +394,17 @@ class AppRepository private constructor(context: Context){
         }
         val remoteItems = fetchListItemsEither(listId)
         remoteItems.forEach { li ->
-            val p = li.product
-            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
-            val existing = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
-            var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
-            var finalCatId = p.category?.id ?: existing?.categoryId
-            // Hydrate missing category/unit from product endpoint when needed
-            if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
-                runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
-                    finalCatId = full.category?.id ?: finalCatId
-                    val u = (full.metadata?.get("unit") as? String).orEmpty()
-                    if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                }
-            }
-            p.category?.let { categoryDto ->
+            val existing = runCatching { productDao.getById(li.product.id ?: 0L) }.getOrNull()
+            val model = li.product.toModel(existing)
+            li.product.category?.let { categoryDto ->
                 categoryDao.upsert(Category(id = categoryDto.id ?: 0L, name = categoryDto.name))
             }
-            productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = finalCatId, unit = finalUnit))
+            productDao.upsert(model)
             itemDao.upsert(
                 ListItem(
                     id = li.id,
                     listId = listId,
-                    productId = p.id ?: 0L,
+                    productId = model.id,
                     quantity = li.quantity.toInt(),
                     acquired = li.purchased
                 )
@@ -360,22 +421,11 @@ class AppRepository private constructor(context: Context){
             }
             val remoteItems = fetchListItemsEither(listId)
             remoteItems.forEach { li ->
-                val p = li.product
-                val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                val unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
-                val existing = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
-                var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
-                var finalCatId = p.category?.id ?: existing?.categoryId
-                if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
-                    runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
-                        finalCatId = full.category?.id ?: finalCatId
-                        val u = (full.metadata?.get("unit") as? String).orEmpty()
-                        if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                    }
-                }
-                p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-                productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = finalCatId, unit = finalUnit))
-                itemDao.upsert(ListItem(id = li.id, listId = listId, productId = p.id ?: 0L, quantity = li.quantity.toInt(), acquired = li.purchased))
+                val existing = runCatching { productDao.getById(li.product.id ?: 0L) }.getOrNull()
+                val model = li.product.toModel(existing)
+                li.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+                productDao.upsert(model)
+                itemDao.upsert(ListItem(id = li.id, listId = listId, productId = model.id, quantity = li.quantity.toInt(), acquired = li.purchased))
             }
             remoteItems.firstOrNull { it.product.id == productId }?.id
                 ?: remoteItems.maxByOrNull { it.id }?.id
@@ -403,21 +453,9 @@ class AppRepository private constructor(context: Context){
         val updated = api.shopping.updateItem(listId, itemId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = newQuantity.toDouble(), unit = unit))
         val p = updated.product
         val existing = runCatching { productDao.getById(p.id ?: productId) }.getOrNull()
-        var price = (p.metadata?.get("price") as? Number)?.toDouble() ?: (existing?.price ?: 0.0)
-        var unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
-        var finalUnit = unitFromServer.ifBlank { existing?.unit ?: unit }
-        var finalCatId = p.category?.id ?: existing?.categoryId
-        if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
-            runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
-                finalCatId = full.category?.id ?: finalCatId
-                val u = (full.metadata?.get("unit") as? String).orEmpty()
-                if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                val pr = (full.metadata?.get("price") as? Number)?.toDouble()
-                if (pr != null) price = pr
-            }
-        }
+        val model = p.toModel(existing)
         p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-        productDao.upsert(Product(id = p.id ?: productId, name = p.name, price = price, categoryId = finalCatId, unit = finalUnit))
+        productDao.upsert(model)
         itemDao.upsert(
             ListItem(
                 id = updated.id,
@@ -434,21 +472,9 @@ class AppRepository private constructor(context: Context){
         val p = updated.product
         val pId = p.id ?: 0L
         val existing = runCatching { productDao.getById(pId) }.getOrNull()
-        var price = (p.metadata?.get("price") as? Number)?.toDouble() ?: (existing?.price ?: 0.0)
-        var unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
-        var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
-        var finalCatId = p.category?.id ?: existing?.categoryId
-        if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
-            runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
-                finalCatId = full.category?.id ?: finalCatId
-                val u = (full.metadata?.get("unit") as? String).orEmpty()
-                if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                val pr = (full.metadata?.get("price") as? Number)?.toDouble()
-                if (pr != null) price = pr
-            }
-        }
+        val model = p.toModel(existing)
         p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-        productDao.upsert(Product(id = pId, name = p.name, price = price, categoryId = finalCatId, unit = finalUnit))
+        productDao.upsert(model)
         itemDao.upsert(ListItem(id = updated.id, listId = listId, productId = pId, quantity = updated.quantity.toInt(), acquired = updated.purchased))
     }
 
@@ -474,6 +500,29 @@ class AppRepository private constructor(context: Context){
 
     // Pantry
     fun pantry(): Flow<List<PantryItem>> = pantryDao.observeAll()
+
+    fun lowStockItems(): Flow<List<LowStockItemSummary>> = combine(
+        pantryDao.observeAll(),
+        productDao.observeAll(),
+        categoryDao.observeAll()
+    ) { pantryItems, products, categories ->
+        val productMap = products.associateBy { it.id }
+        val categoryMap = categories.associateBy { it.id }
+        pantryItems.mapNotNull { entry ->
+            val product = productMap[entry.productId] ?: return@mapNotNull null
+            val threshold = (entry.lowStockThreshold.takeIf { it > 0 } ?: product.lowStockThreshold).coerceAtLeast(1)
+            LowStockItemSummary(
+                pantryItemId = entry.id,
+                productId = product.id,
+                name = product.name,
+                categoryName = product.categoryId?.let { categoryMap[it]?.name } ?: "Otros",
+                quantity = entry.quantity,
+                lowStockThreshold = threshold,
+                unit = product.unit
+            )
+        }.filter { it.quantity <= it.lowStockThreshold }
+            .sortedBy { it.name.lowercase() }
+    }
 
     private suspend fun isPantryUsable(id: Long): Boolean {
         return runCatching {
@@ -566,14 +615,19 @@ class AppRepository private constructor(context: Context){
         // Apply changes atomically to avoid emitting empty list between clear and reinsert
         db.withTransaction {
             pantryDao.clearAll()
-            items.forEach { it ->
-                val p = it.product
-                val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                val unitMeta = (p.metadata?.get("unit") as? String).orEmpty()
-                val catId = p.category?.id
-                p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-                productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unitMeta))
-                pantryDao.upsert(PantryItem(id = it.id, productId = p.id ?: 0L, quantity = it.quantity.toInt()))
+            items.forEach { entry ->
+                val existing = runCatching { productDao.getById(entry.product.id ?: 0L) }.getOrNull()
+                val model = entry.product.toModel(existing)
+                entry.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+                productDao.upsert(model)
+                pantryDao.upsert(
+                    PantryItem(
+                        id = entry.id,
+                        productId = model.id,
+                        quantity = entry.quantity.toInt(),
+                        lowStockThreshold = model.lowStockThreshold
+                    )
+                )
             }
         }
     }
@@ -665,10 +719,17 @@ class AppRepository private constructor(context: Context){
                 )
             )
             created.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-            val pPrice = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
-            productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
-            pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
+            val existingProduct = runCatching { productDao.getById(created.product.id ?: productId) }.getOrNull()
+            val productModel = created.product.toModel(existingProduct)
+            productDao.upsert(productModel)
+            pantryDao.upsert(
+                PantryItem(
+                    id = created.id,
+                    productId = productModel.id,
+                    quantity = created.quantity.toInt(),
+                    lowStockThreshold = productModel.lowStockThreshold
+                )
+            )
         } catch (t: Throwable) {
             val code = (t as? retrofit2.HttpException)?.code()
             if (code == 409) {
@@ -694,7 +755,18 @@ class AppRepository private constructor(context: Context){
             itemId,
             com.example.tuchanguito.network.dto.PantryItemUpdateDTO(quantity = quantity.toDouble(), unit = unit)
         )
-        pantryDao.upsert(PantryItem(id = updated.id, productId = updated.product.id ?: 0L, quantity = updated.quantity.toInt()))
+        val existing = runCatching { productDao.getById(updated.product.id ?: 0L) }.getOrNull()
+        val model = updated.product.toModel(existing)
+        updated.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+        productDao.upsert(model)
+        pantryDao.upsert(
+            PantryItem(
+                id = updated.id,
+                productId = model.id,
+                quantity = updated.quantity.toInt(),
+                lowStockThreshold = model.lowStockThreshold
+            )
+        )
     }
 
     // Pantry: delete an item
@@ -729,3 +801,13 @@ class AppRepository private constructor(context: Context){
         }
     }
 }
+
+data class LowStockItemSummary(
+    val pantryItemId: Long,
+    val productId: Long,
+    val name: String,
+    val categoryName: String,
+    val quantity: Int,
+    val lowStockThreshold: Int,
+    val unit: String
+)

@@ -17,4 +17,21 @@
     <string name="pending">pending</string>
     <string name="open">Open</string>
     <string name="total_cost">Total cost</string>
+    <string name="home_today_label">Hoy</string>
+    <string name="home_default_list_title">Tu lista</string>
+    <string name="home_pending_label">%1$d pendientes</string>
+    <string name="home_no_lists_message">Crea una lista para comenzar a organizar tus compras.</string>
+    <string name="home_open_list">Ver lista</string>
+    <string name="home_create_list">Crear lista</string>
+    <string name="home_quick_actions">Acciones rapidas</string>
+    <string name="home_new_list_hint">Organiza tus compras</string>
+    <string name="home_new_product_hint">Agrega un producto al catalogo</string>
+    <string name="home_configure_categories_hint">Gestiona categorias</string>
+    <string name="home_low_stock_title">Bajo stock</string>
+    <string name="home_low_stock_empty">No hay productos con stock bajo.</string>
+    <string name="home_add_to_list">Agregar %1$d a %2$s</string>
+    <string name="home_add_to_list_disabled">Agrega %1$d cuando tengas una lista activa</string>
+    <string name="home_no_active_list_error">Necesitas una lista activa para agregar productos.</string>
+    <string name="home_add_success">%1$s agregado a tu lista.</string>
+    <string name="home_add_error">No se pudo agregar %1$s a la lista.</string>
 </resources>

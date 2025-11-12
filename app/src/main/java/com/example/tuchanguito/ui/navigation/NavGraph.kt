@@ -42,11 +42,14 @@ fun AppNavGraph(
             composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() }) }
         }
 
-        composable(TopLevelDest.Home.route) { HomeScreen(
-            onOpenList = { id -> navController.navigate("lists/detail/$id") },
-            onNewProduct = { navController.navigate(Routes.PRODUCTS) },
-            onConfigureCategories = { navController.navigate(Routes.CATEGORIES) }
-        ) }
+        composable(TopLevelDest.Home.route) {
+            HomeScreen(
+                onOpenList = { id -> navController.navigate("lists/detail/$id") },
+                onGoToLists = { navController.navigate(TopLevelDest.Lists.route) },
+                onNewProduct = { navController.navigate(Routes.PRODUCTS) },
+                onConfigureCategories = { navController.navigate(Routes.CATEGORIES) }
+            )
+        }
         composable(TopLevelDest.Lists.route) { ListsScreen(onOpenList = { id -> navController.navigate("lists/detail/$id") }) }
         composable(TopLevelDest.Pantry.route) { PantryScreen() }
         composable(TopLevelDest.Profile.route) { ProfileScreen(onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }) }

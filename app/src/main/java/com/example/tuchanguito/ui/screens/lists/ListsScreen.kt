@@ -3,6 +3,7 @@ package com.example.tuchanguito.ui.screens.lists
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -42,7 +43,7 @@ fun ListsScreen(onOpenList: (Long) -> Unit) {
         topBar = { TopAppBar(title = { Text("Listas") }) },
         snackbarHost = { SnackbarHost(hostState = snackbarHost) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreate = true }) { Text("+") }
+            FloatingActionButton(onClick = { showCreate = true }) { Icon(Icons.Filled.Add, contentDescription = "Crear lista") }
         },
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->

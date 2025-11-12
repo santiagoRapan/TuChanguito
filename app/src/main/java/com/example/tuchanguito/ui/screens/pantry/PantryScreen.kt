@@ -4,12 +4,15 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
@@ -85,18 +88,55 @@ fun PantryScreen() {
                 if (pantryItems.isEmpty()) {
                     item { Text("Sin productos en la alacena", style = MaterialTheme.typography.bodyMedium) }
                 } else {
-                    items(pantryItems.size) { idx ->
-                        val pi = pantryItems[idx]
+                    items(pantryItems, key = { it.id }) { pi ->
                         val p = productById[pi.productId]
-                        PantryRow(
-                            name = p?.name ?: "Producto",
-                            unit = p?.unit?.ifBlank { "u" } ?: "u",
-                            quantity = pi.quantity,
-                            onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1) } },
-                            onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1) } },
-                            onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { target ->
+                                if (target == SwipeToDismissBoxValue.EndToStart) {
+                                    scope.launch {
+                                        try { repo.deletePantryItem(pi.id) } catch (t: Throwable) {
+                                            snack.showSnackbar(t.message ?: "No se pudo eliminar")
+                                        }
+                                    }
+                                    true
+                                } else false
+                            }
                         )
-                        HorizontalDivider()
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val fg = MaterialTheme.colorScheme.onErrorContainer
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp)
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(vertical = 0.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = fg)
+                                    }
+                                }
+                            }
+                        ) {
+                            PantryRow(
+                                name = p?.name ?: "Producto",
+                                unit = p?.unit?.ifBlank { "u" } ?: "u",
+                                quantity = pi.quantity,
+                                onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1) } },
+                                onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1) } },
+                                onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
+                            )
+                            HorizontalDivider()
+                        }
                     }
                 }
             }

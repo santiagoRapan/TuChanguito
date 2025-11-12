@@ -11,9 +11,11 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.ListItem
@@ -24,6 +26,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import retrofit2.HttpException
 import androidx.compose.ui.platform.LocalFocusManager
 import java.net.SocketTimeoutException
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.foundation.background
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,71 +144,112 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             acquired = remote?.purchased ?: false
                         )
                         val unit = product?.unit?.ifBlank { remote?.unit ?: "u" } ?: (remote?.unit ?: "u")
-                        ListRow(
-                            productName = product?.name ?: remote?.product?.name ?: "Producto",
-                            price = product?.price ?: 0.0,
-                            unit = unit,
-                            item = itemForRow,
-                            onInc = {
-                                val existingId = local?.id ?: remote?.id
-                                scope.launch {
-                                    try {
-                                        if (existingId != null && existingId > 0) {
-                                            repo.updateItemQuantityRemote(listId, existingId, pid, qty + 1, unit)
-                                        } else {
-                                            repo.addItemRemote(listId, pid, (qty + 1).coerceAtLeast(1), unit)
-                                        }
-                                        // Fetch a single fresh snapshot for remote fallback
-                                        remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
-                                    } catch (t: Throwable) {
-                                        snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
-                                    }
-                                }
-                            },
-                            onDec = {
-                                if (qty > 1) {
-                                    val existingId = local?.id ?: remote?.id
-                                    if (existingId != null && existingId > 0) {
-                                        scope.launch {
-                                            try {
-                                                repo.updateItemQuantityRemote(listId, existingId, pid, qty - 1, unit)
-                                                remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
-                                            } catch (t: Throwable) {
-                                                snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            onDelete = {
-                                val existingId = local?.id ?: remote?.id
-                                if (existingId != null && existingId > 0) {
+
+                        val existingId = local?.id ?: remote?.id
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { target ->
+                                if (target == SwipeToDismissBoxValue.EndToStart && existingId != null && existingId > 0) {
                                     scope.launch {
                                         try {
-                                            if (local != null) repo.deleteItemRemote(listId, existingId, local) else runCatching { repo.deleteItemRemote(listId, existingId, ListItem(id = existingId, listId = listId, productId = pid, quantity = qty)) }
-                                            // Single refresh for fallback
-                                            remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
+                                            if (local != null) {
+                                                repo.deleteItemRemote(listId, existingId, local)
+                                            } else {
+                                                runCatching { repo.deleteItemRemote(listId, existingId, ListItem(id = existingId, listId = listId, productId = pid, quantity = qty)) }
+                                            }
+                                            // Rely on Room emission to update list
                                         } catch (t: Throwable) {
                                             snack.showSnackbar(t.message ?: "No se pudo eliminar el producto de la lista")
                                         }
                                     }
-                                }
-                            },
-                            onToggleAcquired = {
-                                val existingId = local?.id ?: remote?.id
-                                if (existingId != null && existingId > 0) {
-                                    val newPurchased = !(local?.acquired ?: (remote?.purchased ?: false))
-                                    scope.launch {
-                                        try {
-                                            repo.toggleItemPurchasedRemote(listId, existingId, newPurchased)
-                                            remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
-                                        } catch (t: Throwable) {
-                                            snack.showSnackbar(t.message ?: "No se pudo cambiar el estado")
-                                        }
+                                    true
+                                } else false
+                            }
+                        )
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val fg = MaterialTheme.colorScheme.onErrorContainer
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp)
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(vertical = 0.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = fg)
                                     }
                                 }
                             }
-                        )
+                        ) {
+                            ListRow(
+                                productName = product?.name ?: remote?.product?.name ?: "Producto",
+                                price = product?.price ?: 0.0,
+                                unit = unit,
+                                item = itemForRow,
+                                onInc = {
+                                    val eid = local?.id ?: remote?.id
+                                    scope.launch {
+                                        try {
+                                            if (eid != null && eid > 0) {
+                                                repo.updateItemQuantityRemote(listId, eid, pid, qty + 1, unit)
+                                            } else {
+                                                repo.addItemRemote(listId, pid, (qty + 1).coerceAtLeast(1), unit)
+                                            }
+                                        } catch (t: Throwable) {
+                                            snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
+                                        }
+                                    }
+                                },
+                                onDec = {
+                                    if (qty > 1) {
+                                        val eid = local?.id ?: remote?.id
+                                        if (eid != null && eid > 0) {
+                                            scope.launch {
+                                                try {
+                                                    repo.updateItemQuantityRemote(listId, eid, pid, qty - 1, unit)
+                                                } catch (t: Throwable) {
+                                                    snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                onDelete = {
+                                    val eid = local?.id ?: remote?.id
+                                    if (eid != null && eid > 0) {
+                                        scope.launch {
+                                            try {
+                                                if (local != null) repo.deleteItemRemote(listId, eid, local) else runCatching { repo.deleteItemRemote(listId, eid, ListItem(id = eid, listId = listId, productId = pid, quantity = qty)) }
+                                            } catch (t: Throwable) {
+                                                snack.showSnackbar(t.message ?: "No se pudo eliminar el producto de la lista")
+                                            }
+                                        }
+                                    }
+                                },
+                                onToggleAcquired = {
+                                    val eid = local?.id ?: remote?.id
+                                    if (eid != null && eid > 0) {
+                                        val newPurchased = !(local?.acquired ?: (remote?.purchased ?: false))
+                                        scope.launch {
+                                            try {
+                                                repo.toggleItemPurchasedRemote(listId, eid, newPurchased)
+                                            } catch (t: Throwable) {
+                                                snack.showSnackbar(t.message ?: "No se pudo cambiar el estado")
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -354,7 +401,7 @@ private fun ListRow(
     productName: String,
     price: Double,
     unit: String,
-    item: ListItem,
+    item: com.example.tuchanguito.data.model.ListItem,
     onInc: () -> Unit,
     onDec: () -> Unit,
     onDelete: () -> Unit,
@@ -364,8 +411,16 @@ private fun ListRow(
         leadingContent = {
             Checkbox(checked = item.acquired, onCheckedChange = { onToggleAcquired() })
         },
-        headlineContent = { Text(productName) },
-        supportingContent = { Text("\$${price} · ${unit} x ${item.quantity}") },
+        headlineContent = {
+            Text(
+                productName,
+                textDecoration = if (item.acquired) TextDecoration.LineThrough else TextDecoration.None
+            )
+        },
+        supportingContent = {
+            val priceStr = "%.2f".format(price)
+            Text("Precio: $" + priceStr)
+        },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDec) { Text("-") }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException // Added for HTTP status inspection
+import androidx.room.withTransaction
 
 /**
  * Simple repository coordinating Room DAOs for the app features.
@@ -533,15 +534,18 @@ class AppRepository private constructor(context: Context){
         }
         if (page == null) return
         val items = page.data
-        runCatching { pantryDao.clearAll() }
-        items.forEach { it ->
-            val p = it.product
-            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val unitMeta = (p.metadata?.get("unit") as? String).orEmpty()
-            val catId = p.category?.id
-            p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-            productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unitMeta))
-            pantryDao.upsert(PantryItem(id = it.id, productId = p.id ?: 0L, quantity = it.quantity.toInt()))
+        // Apply changes atomically to avoid emitting empty list between clear and reinsert
+        db.withTransaction {
+            pantryDao.clearAll()
+            items.forEach { it ->
+                val p = it.product
+                val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+                val unitMeta = (p.metadata?.get("unit") as? String).orEmpty()
+                val catId = p.category?.id
+                p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
+                productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unitMeta))
+                pantryDao.upsert(PantryItem(id = it.id, productId = p.id ?: 0L, quantity = it.quantity.toInt()))
+            }
         }
     }
 

@@ -216,7 +216,6 @@ private fun PantryRow(
 ) {
     ListItem(
         headlineContent = { Text(name) },
-        supportingContent = { Text("$unit x $quantity") },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDec) { Text("-") }

@@ -167,4 +167,13 @@
     <string name="home_low_stock_add">Agregar %1$d a %2$s</string>
     <string name="home_low_stock_unknown_product">Producto sin nombre</string>
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
+
+    <!-- Strings for ListsScreen -->
+    <string name="my_lists">My Lists</string>
+    <string name="no_lists_found">No lists found.</string>
+    <string name="rename_list_dialog_title">Rename List</string>
+    <string name="rename_list_content_description">Rename list</string>
+    <string name="delete_list_content_description">Delete list</string>
+    <string name="mark_as_recurrent">Mark as recurrent</string>
+    <string name="open_list">Open</string>
 </resources>

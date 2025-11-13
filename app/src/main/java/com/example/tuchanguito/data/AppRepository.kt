@@ -153,26 +153,40 @@ class AppRepository private constructor(context: Context){
     }
 
     suspend fun createProductRemote(name: String, price: Double, unit: String, categoryId: Long?): Long {
-        // Resolve category: if id came from local DB but doesn’t exist remotely, create it first
         val finalCatId = if (categoryId != null) {
-            // Try to fetch remote category; if missing, create by local name fallback
             val remoteOk = runCatching { api.catalog.getCategories(page = 1, perPage = 1000) }.getOrNull()?.data?.any { it.id == categoryId } == true
             if (remoteOk) categoryId else {
-                // Try to read local name and recreate remotely
                 val localName = runCatching { categoryDao.getById(categoryId)?.name }.getOrNull()
                 if (!localName.isNullOrBlank()) createOrFindCategoryByName(localName) else categoryId
             }
         } else null
 
-        val resp = api.catalog.createProduct(
-            ProductRegistrationDTO(
-                name = name,
-                category = finalCatId?.let { IdRef(it) },
-                metadata = mapOf("price" to price, "unit" to unit)
+        try {
+            val resp = api.catalog.createProduct(
+                ProductRegistrationDTO(
+                    name = name,
+                    category = finalCatId?.let { IdRef(it) },
+                    metadata = mapOf("price" to price, "unit" to unit)
+                )
             )
-        )
-        if (!resp.isSuccessful) {
-            // Attempt to find existing product with same name (409 Conflict case)
+            if (!resp.isSuccessful) {
+                throw HttpException(resp)
+            }
+            val page = runCatching { api.catalog.getProducts(name = name, page = 1, perPage = 1) }.getOrNull()
+            val dto = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                ?: throw IllegalStateException("Producto creado pero no encontrado por nombre")
+            val pId = dto.id ?: 0L
+            val pCatId = dto.category?.id
+            val pPrice = (dto.metadata?.get("price") as? Number)?.toDouble() ?: price
+            val pUnit = (dto.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
+            productDao.upsert(Product(id = pId, name = dto.name, price = pPrice, categoryId = pCatId, unit = pUnit))
+            syncProducts()
+            return pId
+        } catch (t: Throwable) {
+            val code = (t as? HttpException)?.code()
+            if (code == 409) { // Conflict
+                throw IllegalStateException("Ya existe un producto con el nombre '$name'")
+            }
             val page = runCatching { api.catalog.getProducts(name = name, page = 1, perPage = 1) }.getOrNull()
             val existing = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
             if (existing != null) {
@@ -182,20 +196,9 @@ class AppRepository private constructor(context: Context){
                 productDao.upsert(Product(id = exId, name = existing.name, price = pPrice, categoryId = existing.category?.id, unit = pUnit))
                 return exId
             }
-            throw IllegalStateException("Error creando producto: HTTP ${'$'}{resp.code()}")
+
+            throw IllegalStateException("Error creando producto: ${t.message}", t)
         }
-        // Some servers return minimal/empty body on create; fetch by name to locate the created product
-        val page = runCatching { api.catalog.getProducts(name = name, page = 1, perPage = 1) }.getOrNull()
-        val dto = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
-            ?: throw IllegalStateException("Producto creado pero no encontrado por nombre")
-        val pId = dto.id ?: 0L
-        val pCatId = dto.category?.id
-        val pPrice = (dto.metadata?.get("price") as? Number)?.toDouble() ?: price
-        val pUnit = (dto.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
-        productDao.upsert(Product(id = pId, name = dto.name, price = pPrice, categoryId = pCatId, unit = pUnit))
-        // Ensure list shows all current remote products
-        syncProducts()
-        return pId
     }
 
     suspend fun updateProductRemote(id: Long, name: String, price: Double, unit: String, categoryId: Long?) {
@@ -208,23 +211,20 @@ class AppRepository private constructor(context: Context){
             )
         )
         if (!resp.isSuccessful) {
-            throw IllegalStateException("Error actualizando producto: HTTP ${'$'}{resp.code()}")
+            throw IllegalStateException("Error actualizando producto: HTTP ${resp.code()}")
         }
-        // Regardless of body, fetch latest from server to ensure final state matches backend rules
         val server = runCatching { api.catalog.getProduct(id) }.getOrNull()
         val pCatId = server?.category?.id ?: categoryId
         val pPrice = (server?.metadata?.get("price") as? Number)?.toDouble() ?: price
         val pUnit = (server?.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
         val pName = server?.name ?: name
         productDao.upsert(Product(id = id, name = pName, price = pPrice, categoryId = pCatId, unit = pUnit))
-        // Refresh full list to avoid partial state
         syncProducts()
     }
 
     suspend fun deleteProductRemote(id: Long) {
         api.catalog.deleteProduct(id)
         productDao.getById(id)?.let { productDao.delete(it) }
-        // Refresh remote to ensure local matches server after deletion
         syncProducts()
     }
 
@@ -239,12 +239,18 @@ class AppRepository private constructor(context: Context){
                 }
             }
     }
+    
+    suspend fun ensureDefaultCategories() {
+        val defaultCategories = listOf("Bebidas", "Snacks", "Lácteos")
+        defaultCategories.forEach { categoryName ->
+            createOrFindCategoryByName(categoryName)
+        }
+    }
 
     // Lists (API-backed)
     fun activeLists(): Flow<List<ShoppingList>> = remoteLists
     fun listById(id: Long): Flow<ShoppingList?> = listDao.observeById(id)
     suspend fun loadListIntoLocal(id: Long) {
-        // Fetch remote list and persist into Room so UI detail observes correct title
         runCatching { api.shopping.getList(id) }
             .onSuccess { dto -> listDao.upsert(ShoppingList(id = dto.id, title = dto.name)) }
     }
@@ -255,21 +261,17 @@ class AppRepository private constructor(context: Context){
         _remoteLists.value = lists
         Result.success(Unit)
     } catch (t: Throwable) {
-        // Keep previous cache and report failure without throwing
         Result.failure(t)
     }
 
     private suspend fun existsListWithName(name: String): Boolean {
         return try {
-            // Ask API filtering by name and owner=true to check uniqueness on server
             val page = api.shopping.getLists(name = name, owner = true, page = 1, perPage = 1)
             page.data.any { it.name.equals(name, ignoreCase = true) }
         } catch (_: Throwable) { false }
     }
 
     suspend fun createList(title: String): Long {
-        // API requires name, description (string) and recurring (boolean)
-        // Prevent 409 UNIQUE constraint by checking server-side duplicates first
         if (existsListWithName(title)) throw IllegalStateException("Ya existe una lista con ese nombre")
         val dto = api.shopping.createList(
             com.example.tuchanguito.network.dto.ShoppingListCreateDTO(
@@ -279,11 +281,9 @@ class AppRepository private constructor(context: Context){
                 metadata = emptyMap()
             )
         )
-        // Fetch server version to ensure fields are in sync, then update cache
         val created = runCatching { api.shopping.getList(dto.id) }.getOrNull()
         val model = if (created != null) ShoppingList(id = created.id, title = created.name) else ShoppingList(id = dto.id, title = dto.name)
         _remoteLists.update { it + model }
-        // Also persist in Room so ListDetail observes the correct title immediately
         listDao.upsert(model)
         return dto.id
     }
@@ -292,7 +292,6 @@ class AppRepository private constructor(context: Context){
         if (existsListWithName(newTitle)) throw IllegalStateException("Ya existe una lista con ese nombre")
         api.shopping.updateList(id, com.example.tuchanguito.network.dto.ShoppingListCreateDTO(name = newTitle))
         _remoteLists.update { cur -> cur.map { if (it.id == id) it.copy(title = newTitle) else it } }
-        // Keep Room in sync so ListDetail shows the updated title
         listDao.upsert(ShoppingList(id = id, title = newTitle))
     }
 
@@ -304,18 +303,14 @@ class AppRepository private constructor(context: Context){
     fun itemsForList(listId: Long): Flow<List<ListItem>> = itemDao.observeForList(listId)
 
     private suspend fun fetchListItemsEither(listId: Long): List<ListItemDTO> {
-        // Try plain array first
         return runCatching { api.shopping.getItems(listId) }.getOrElse {
-            // Fallback to page-wrapped structure
             runCatching { api.shopping.getItemsPage(listId).data }.getOrElse { emptyList() }
         }
     }
 
     suspend fun fetchListItemsRemote(listId: Long): List<ListItemDTO> = fetchListItemsEither(listId)
 
-    // --- New: API-backed list item operations ---
     suspend fun syncListItems(listId: Long) {
-        // Ensure list exists locally (FK for list_items)
         runCatching { api.shopping.getList(listId) }.onSuccess { dto ->
             listDao.upsert(ShoppingList(id = dto.id, title = dto.name))
         }
@@ -327,7 +322,6 @@ class AppRepository private constructor(context: Context){
             val existing = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
             var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
             var finalCatId = p.category?.id ?: existing?.categoryId
-            // Hydrate missing category/unit from product endpoint when needed
             if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
                 runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
                     finalCatId = full.category?.id ?: finalCatId

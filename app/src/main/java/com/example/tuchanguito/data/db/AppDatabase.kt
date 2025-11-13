@@ -28,7 +28,10 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "tuchanguito.db"
-            ).addMigrations(MIGRATION_1_2).addCallback(object: RoomDatabase.Callback() {
+            )
+                .addMigrations(MIGRATION_1_2)
+                .fallbackToDestructiveMigrationOnDowngrade()
+                .addCallback(object: RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
                     // No seed data by default: keep DB empty and let API drive content

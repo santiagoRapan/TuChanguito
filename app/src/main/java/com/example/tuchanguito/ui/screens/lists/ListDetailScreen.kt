@@ -34,6 +34,8 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.res.stringResource
+import com.example.tuchanguito.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +48,35 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val categories by repo.categories().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
+
+    // Hoisted strings used inside click handlers / coroutines
+    val defaultListTitle = stringResource(id = R.string.lists)
+    val productLabel = stringResource(id = R.string.product)
+    val totalLabelFmt = stringResource(id = R.string.total_label)
+    val shareChooserTitle = stringResource(id = R.string.share_list_chooser)
+    val copyContentDesc = stringResource(id = R.string.copy_list_content)
+    val shareWithUserDesc = stringResource(id = R.string.share_with_user)
+    val noCategoryLabel = stringResource(id = R.string.no_category)
+    val unitDefault = stringResource(id = R.string.unit_default)
+    val deleteItemError = stringResource(id = R.string.delete_item_error)
+    val updateQuantityError = stringResource(id = R.string.update_quantity_error)
+    val changeStateError = stringResource(id = R.string.change_state_error)
+    val closeListLabel = stringResource(id = R.string.close_list)
+    val finalizeLabel = stringResource(id = R.string.finalize)
+    val addLabel = stringResource(id = R.string.add_label)
+    val cancelLabel = stringResource(id = R.string.cancel)
+    val addProductTitle = stringResource(id = R.string.add_product_to_list)
+    val priceLabel = stringResource(id = R.string.price_label)
+    val unitLabel = stringResource(id = R.string.unit_label)
+    val categoryLabel = stringResource(id = R.string.category_label)
+    val shareSuccess = stringResource(id = R.string.share_success)
+    val addItemError = stringResource(id = R.string.add_item_error)
+    // share error messages
+    val shareError404 = stringResource(id = R.string.share_error_404)
+    val shareError409 = stringResource(id = R.string.share_error_409)
+    val shareError400 = stringResource(id = R.string.share_error_400)
+    val shareErrorUnauthorized = stringResource(id = R.string.share_error_unauthorized)
+    val shareErrorDefault = stringResource(id = R.string.share_error_default)
 
     // Remote-backed fallback for items
     var remoteItems by remember { mutableStateOf<List<ListItemDTO>>(emptyList()) }
@@ -88,29 +119,29 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(list?.title ?: "Lista") }, actions = {
+            TopAppBar(title = { Text(list?.title ?: defaultListTitle) }, actions = {
                 IconButton(onClick = {
                     // Share list via app share sheet (copy text)
                     val body = buildString {
-                        appendLine(list?.title ?: "Lista")
+                        appendLine(list?.title ?: defaultListTitle)
                         appendLine()
                         listItems.forEach { li ->
                             val prod = products.firstOrNull { it.id == li.productId }
-                            appendLine("- ${prod?.name ?: "Producto"} x${li.quantity}")
+                            appendLine("- ${prod?.name ?: productLabel} x${li.quantity}")
                         }
                         appendLine()
-                        append("Total: \$${total}")
+                        append(String.format(totalLabelFmt, total))
                     }
                     val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }
-                    context.startActivity(Intent.createChooser(send, "Compartir lista"))
-                }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copiar contenido de la lista") }
+                    context.startActivity(Intent.createChooser(send, shareChooserTitle))
+                }) { Icon(Icons.Default.ContentCopy, contentDescription = copyContentDesc) }
                 IconButton(onClick = {
                     // Reset message state each time dialog opens
                     shareMessage = null
                     shareIsError = false
                     showShare = true
                 }) {
-                    Icon(Icons.Default.Share, contentDescription = "Compartir lista con usuario")
+                    Icon(Icons.Default.Share, contentDescription = shareWithUserDesc)
                 }
             })
         },
@@ -135,7 +166,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         ?: pids.firstOrNull()?.let { firstPid ->
                             remoteByProductId[firstPid]?.product?.category?.name
                         }
-                        ?: "Sin categoría"
+                        ?: noCategoryLabel
                     item(key = "header-$catId") { Text(catName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
                     items(pids, key = { it }) { pid ->
                         val product = productById[pid]
@@ -149,7 +180,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             quantity = qty,
                             acquired = remote?.purchased ?: false
                         )
-                        val unit = product?.unit?.ifBlank { remote?.unit ?: "u" } ?: (remote?.unit ?: "u")
+                        val unit = product?.unit?.ifBlank { remote?.unit ?: unitDefault } ?: (remote?.unit ?: unitDefault)
 
                         val existingId = local?.id ?: remote?.id
                         val dismissState = rememberSwipeToDismissBoxState(
@@ -164,7 +195,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                             }
                                             // Rely on Room emission to update list
                                         } catch (t: Throwable) {
-                                            snack.showSnackbar(t.message ?: "No se pudo eliminar el producto de la lista")
+                                            snack.showSnackbar(t.message ?: deleteItemError)
                                         }
                                     }
                                     true
@@ -197,7 +228,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             }
                         ) {
                             ListRow(
-                                productName = product?.name ?: remote?.product?.name ?: "Producto",
+                                productName = product?.name ?: remote?.product?.name ?: productLabel,
                                 price = product?.price ?: 0.0,
                                 unit = unit,
                                 item = itemForRow,
@@ -211,7 +242,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                                 repo.addItemRemote(listId, pid, (qty + 1).coerceAtLeast(1), unit)
                                             }
                                         } catch (t: Throwable) {
-                                            snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
+                                            snack.showSnackbar(t.message ?: updateQuantityError)
                                         }
                                     }
                                 },
@@ -223,7 +254,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                                 try {
                                                     repo.updateItemQuantityRemote(listId, eid, pid, qty - 1, unit)
                                                 } catch (t: Throwable) {
-                                                    snack.showSnackbar(t.message ?: "No se pudo actualizar la cantidad")
+                                                    snack.showSnackbar(t.message ?: updateQuantityError)
                                                 }
                                             }
                                         }
@@ -236,7 +267,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                             try {
                                                 if (local != null) repo.deleteItemRemote(listId, eid, local) else runCatching { repo.deleteItemRemote(listId, eid, ListItem(id = eid, listId = listId, productId = pid, quantity = qty)) }
                                             } catch (t: Throwable) {
-                                                snack.showSnackbar(t.message ?: "No se pudo eliminar el producto de la lista")
+                                                snack.showSnackbar(t.message ?: deleteItemError)
                                             }
                                         }
                                     }
@@ -249,7 +280,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                             try {
                                                 repo.toggleItemPurchasedRemote(listId, eid, newPurchased)
                                             } catch (t: Throwable) {
-                                                snack.showSnackbar(t.message ?: "No se pudo cambiar el estado")
+                                                snack.showSnackbar(t.message ?: changeStateError)
                                             }
                                         }
                                     }
@@ -259,7 +290,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     }
                 }
             }
-            Text("Costo total: \$${total}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
+            Text(String.format(totalLabelFmt, total), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
             // Reserve space at end for the floating action button (approx 72-88dp)
             Row(
                 Modifier
@@ -272,13 +303,13 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     modifier = Modifier
                         .weight(0.45f)
                         .heightIn(min = 36.dp)
-                ) { Text("Cerrar lista") }
+                ) { Text(closeListLabel) }
                 Button(
                     onClick = { showFinalize = true },
                     modifier = Modifier
                         .weight(0.45f)
                         .heightIn(min = 36.dp)
-                ) { Text("Finalizar") }
+                ) { Text(finalizeLabel) }
             }
         }
     }
@@ -320,7 +351,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         remoteItems = runCatching { repo.fetchListItemsRemote(listId) }.getOrDefault(emptyList())
                         showAdd = false
                     } catch (t: Throwable) {
-                        snack.showSnackbar(t.message ?: "No se pudo agregar el producto a la lista")
+                        snack.showSnackbar(t.message ?: addItemError)
                     }
                 }
             },
@@ -352,23 +383,23 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 scope.launch {
                     try {
                         repo.shareListRemote(listId, email)
-                        // Success: show concise success message
-                        shareMessage = "La lista ha sido compartida"
+                        // Success: show concise success message (use hoisted value)
+                        shareMessage = shareSuccess
                         shareIsError = false
                     } catch (t: Throwable) {
                         // If it's a network timeout, optimistically report success because the server may have processed it
                         val isTimeout = t is SocketTimeoutException || (t.message?.contains("timeout", ignoreCase = true) == true)
                         if (isTimeout) {
-                            shareMessage = "La lista ha sido compartida"
+                            shareMessage = shareSuccess
                             shareIsError = false
                         } else {
                             val code = (t as? HttpException)?.code()
                             val msg = when (code) {
-                                404 -> "No encontramos un usuario registrado con ese email"
-                                409 -> "Ya compartiste esta lista con ese email"
-                                400 -> "No se pudo compartir la lista. Verifica el email."
-                                401, 403 -> "No estás autorizado para realizar esta acción"
-                                else -> t.message ?: "No se pudo compartir la lista"
+                                404 -> shareError404
+                                409 -> shareError409
+                                400 -> shareError400
+                                401, 403 -> shareErrorUnauthorized
+                                else -> shareErrorDefault
                             }
                             shareMessage = msg
                             shareIsError = true
@@ -426,7 +457,7 @@ private fun ListRow(
         },
         supportingContent = {
             val priceStr = "%.2f".format(price)
-            Text("Precio: $" + priceStr)
+            Text(stringResource(id = R.string.price_label) + ": $" + priceStr)
         },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -475,19 +506,28 @@ private fun AddItemDialog(
         if (q.isBlank()) emptyList() else categories.filter { it.contains(q, ignoreCase = true) }.take(8)
     }
 
+    // local strings (AddItemDialog is a top-level composable and cannot access outer hoisted vals)
+    val addLabel = stringResource(id = R.string.add_label)
+    val cancelLabel = stringResource(id = R.string.cancel)
+    val addProductTitle = stringResource(id = R.string.add_product_to_list)
+    val productLabel = stringResource(id = R.string.product)
+    val priceLabel = stringResource(id = R.string.price_label)
+    val unitLabel = stringResource(id = R.string.unit_label)
+    val categoryLabel = stringResource(id = R.string.category_label)
+
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         confirmButton = {
             TextButton(onClick = {
-                busy = true
-                val p = selectedId
-                val price = priceText.toDoubleOrNull()
-                onAdd(p, if (p == null) name else name.takeIf { it.isNotBlank() && it != (onPrefillFor(p)?.name ?: "") }, price, unit, category.ifBlank { null })
-                busy = false
-            }, enabled = !busy && (selectedId != null || name.trim().isNotBlank())) { Text("Agregar") }
+                 busy = true
+                 val p = selectedId
+                 val price = priceText.toDoubleOrNull()
+                 onAdd(p, if (p == null) name else name.takeIf { it.isNotBlank() && it != (onPrefillFor(p)?.name ?: "") }, price, unit, category.ifBlank { null })
+                 busy = false
+             }, enabled = !busy && (selectedId != null || name.trim().isNotBlank())) { Text(addLabel) }
         },
-        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text("Cancelar") } },
-        title = { Text("Agregar producto a la lista") },
+        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text(cancelLabel) } },
+        title = { Text(addProductTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -498,7 +538,7 @@ private fun AddItemDialog(
                         selectedId = matched?.id
                         if (matched != null) prefillFrom(matched)
                     },
-                    label = { Text("Producto") },
+                    label = { Text(productLabel) },
                     singleLine = true
                 )
                 if (suggestions.isNotEmpty()) {
@@ -513,20 +553,20 @@ private fun AddItemDialog(
                 OutlinedTextField(
                     value = priceText,
                     onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("Precio") },
+                    label = { Text(priceLabel) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = unit,
                     onValueChange = { unit = it },
-                    label = { Text("Unidad") },
+                    label = { Text(unitLabel) },
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = category,
                     onValueChange = { category = it },
-                    label = { Text("Categoría") },
+                    label = { Text(categoryLabel) },
                     singleLine = true
                 )
                 if (categorySuggestions.isNotEmpty()) {
@@ -559,29 +599,29 @@ private fun ShareListDialog(
                 focusManager.clearFocus()
                 onShare(email.trim())
             }, enabled = canConfirm) {
-                Text("Compartir")
+                Text(stringResource(id = R.string.share_button))
             }
         },
         dismissButton = {
-            val dismissLabel = if (message != null && !isError) "Cerrar" else "Cancelar"
+            val dismissLabel = if (message != null && !isError) stringResource(id = R.string.close_label) else stringResource(id = R.string.cancel)
             TextButton(onClick = { if (!busy) onDismiss() }) { Text(dismissLabel) }
         },
-        title = { Text("Compartir lista") },
+        title = { Text(stringResource(id = R.string.share_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (busy) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
-                Text("Ingresa el email del usuario con quien deseas compartir la lista")
+                Text(stringResource(id = R.string.share_enter_email))
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text(stringResource(id = R.string.email_label)) },
                     singleLine = true,
                     enabled = !busy && (message == null || isError),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     supportingText = {
-                        if (!isValid && email.isNotBlank() && (message == null || isError)) Text("Introduce un email válido")
+                        if (!isValid && email.isNotBlank() && (message == null || isError)) Text(stringResource(id = R.string.invalid_email))
                     }
                 )
                 if (message != null) {
@@ -674,46 +714,46 @@ private fun FinalizeDialog(
                         onDone()
                     }
                 }
-            ) { Text(if (busy) "Procesando..." else "Finalizar") }
+            ) { Text(if (busy) stringResource(id = R.string.processing) else stringResource(id = R.string.finalize)) }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancelar") } },
-        title = { Text("Finalizar lista") },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(id = R.string.cancel)) } },
+        title = { Text(stringResource(id = R.string.finalize)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Qué deseas hacer al finalizar?")
+                Text(stringResource(id = R.string.finalize_question))
                 // Purchased -> Pantry
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(checked = includePurchasedToPantry, onCheckedChange = { includePurchasedToPantry = it })
                     Spacer(Modifier.width(8.dp))
-                    Text("Agregar productos comprados a la alacena")
+                    Text(stringResource(id = R.string.add_purchased_to_pantry))
                 }
                 // Not purchased -> another list
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(checked = moveNotPurchased, onCheckedChange = { moveNotPurchased = it })
                     Spacer(Modifier.width(8.dp))
-                    Text("Mover productos no comprados a otra lista")
+                    Text(stringResource(id = R.string.move_not_purchased))
                 }
                 if (moveNotPurchased) {
                     // Selector: existing vs create new
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(onClick = { creatingNew = false }, label = { Text("Seleccionar lista") }, leadingIcon = {})
-                        AssistChip(onClick = { creatingNew = true }, label = { Text("Crear nueva") }, leadingIcon = {})
+                        AssistChip(onClick = { creatingNew = false }, label = { Text(stringResource(id = R.string.select_list)) }, leadingIcon = {})
+                        AssistChip(onClick = { creatingNew = true }, label = { Text(stringResource(id = R.string.create_new)) }, leadingIcon = {})
                     }
                     if (creatingNew) {
                         OutlinedTextField(
                             value = newListName,
                             onValueChange = { newListName = it },
-                            label = { Text("Nombre de la nueva lista") },
+                            label = { Text(stringResource(id = R.string.new_list_name_label)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
                         // Simple dropdown using a list of buttons
                         Column {
-                            Text("Selecciona una lista destino:")
+                            Text(stringResource(id = R.string.select_destination))
                             val options = lists.filter { it.id != listId }
                             if (options.isEmpty()) {
-                                Text("No hay listas disponibles")
+                                Text(stringResource(id = R.string.no_lists_available))
                             } else {
                                 options.forEach { l ->
                                     val selected = selectedListId == l.id

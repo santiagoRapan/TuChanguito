@@ -24,10 +24,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.PreferencesManager
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
@@ -59,6 +61,18 @@ fun LoginScreen(
     val prefs = remember { PreferencesManager(context) }
     val scope = rememberCoroutineScope()
 
+    val appName = stringResource(id = R.string.app_name)
+    val signInLabel = stringResource(id = R.string.login)
+    val emailLabel = stringResource(id = R.string.email)
+    val passwordLabel = stringResource(id = R.string.password)
+    val rememberMeLabel = stringResource(id = R.string.remember_me)
+    val forgotPasswordLabel = stringResource(id = R.string.forgot_password)
+    val noAccountCreate = stringResource(id = R.string.no_account_create)
+    val verifyAccountLabel = stringResource(id = R.string.verify)
+    val loginErrorDefault = stringResource(id = R.string.loading_user_error)
+    // Hoisted non-composable labels used inside coroutines
+    val loginErrorLabel = stringResource(id = R.string.login_error)
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var remember by remember { mutableStateOf(true) }
@@ -86,7 +100,7 @@ fun LoginScreen(
         ) {
             // Título centrado "TuChanguito" usando el color secundario (importante)
             Text(
-                text = "TuChanguito",
+                text = appName,
                 color = ColorSecondary,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -101,7 +115,7 @@ fun LoginScreen(
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text(
-                        text = "Iniciar sesión",
+                        text = signInLabel,
                         style = MaterialTheme.typography.titleMedium,
                         color = ColorSecondary
                     )
@@ -110,7 +124,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Email") },
+                        label = { Text(emailLabel) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading
                     )
@@ -118,7 +132,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Contraseña") },
+                        label = { Text(passwordLabel) },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = PasswordVisualTransformation(),
                         enabled = !isLoading
@@ -126,7 +140,7 @@ fun LoginScreen(
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = remember, onCheckedChange = { remember = it }, enabled = !isLoading)
-                        Text("Recordarme")
+                        Text(rememberMeLabel)
                     }
                     if (error != null) {
                         Spacer(Modifier.height(8.dp))
@@ -147,11 +161,11 @@ fun LoginScreen(
                                         prefs.setRememberMe(remember)
                                         onLoginSuccess()
                                     } else {
-                                        val msg = result.exceptionOrNull()?.message ?: "Error de inicio de sesión"
+                                        val msg = result.exceptionOrNull()?.message ?: loginErrorDefault
                                         error = msg
                                     }
                                 } catch (t: Throwable) {
-                                    val msg = t.message ?: "Error de inicio de sesión"
+                                    val msg = t.message ?: loginErrorLabel
                                     error = msg
                                 } finally {
                                     isLoading = false
@@ -160,7 +174,7 @@ fun LoginScreen(
                         }
                     ) {
                         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
-                        else Text("Ingresar")
+                        else Text(signInLabel)
                     }
                     Spacer(Modifier.height(8.dp))
                     TextButton(
@@ -169,7 +183,7 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "¿Olvidaste tu contraseña?",
+                            text = forgotPasswordLabel,
                             color = ColorPrimary,
                             style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.Underline),
                             modifier = Modifier.fillMaxWidth(),
@@ -183,9 +197,9 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = buildAnnotatedString {
-                                append("¿No tenes cuenta? ")
+                                append(noAccountCreate)
                                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                                    append("Crear cuenta.")
+                                    append(stringResource(id = R.string.register))
                                 }
                             },
                             color = ColorPrimary,
@@ -207,21 +221,21 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "Verificar cuenta",
-                            color = ColorPrimary,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center
+                            verifyAccountLabel,
+                             color = ColorPrimary,
+                             modifier = Modifier.fillMaxWidth(),
+                             textAlign = TextAlign.Center
                         )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Si ya te registraste pero no verificaste tu cuenta, ingresá tu email y presioná Verificar cuenta",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                        text = stringResource(id = R.string.no_account_create),
+                         color = Color.Gray,
+                         style = MaterialTheme.typography.bodySmall,
+                         textAlign = TextAlign.Center,
+                         modifier = Modifier
+                             .fillMaxWidth()
+                             .padding(horizontal = 8.dp)
                     )
                 }
             }

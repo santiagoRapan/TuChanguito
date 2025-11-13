@@ -17,4 +17,106 @@
     <string name="pending">pending</string>
     <string name="open">Open</string>
     <string name="total_cost">Total cost</string>
+
+    <!-- Added keys for UI screens -->
+    <string name="modify_password">Modify password</string>
+    <string name="back">Back</string>
+    <string name="verify_identity">Verify your identity</string>
+    <string name="current_password">Current password</string>
+    <string name="verify">Verify</string>
+    <string name="choose_new_password">Choose a new password</string>
+    <string name="new_password">New password</string>
+    <string name="confirm_new_password">Confirm new password</string>
+    <string name="complete_both_fields">Please complete both fields</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="error_changing_password">Error changing password</string>
+    <string name="save_new_password">Save new password</string>
+
+    <string name="user_data">User data</string>
+    <string name="name">Name</string>
+    <string name="surname">Surname</string>
+    <string name="edit_profile">Edit profile</string>
+    <string name="change_password">Change password</string>
+    <string name="save_changes">Save changes</string>
+    <string name="cancel">Cancel</string>
+    <string name="personalization">Personalization</string>
+    <string name="loading_user_error">Error loading user</string>
+
+    <string name="categories">Categories</string>
+    <string name="add">Add</string>
+    <string name="create_list">Create list</string>
+    <string name="create">Create</string>
+    <string name="create_list_dialog_title">New list</string>
+    <string name="list_name_label">List name</string>
+    <string name="list_already_exists">A list with that name already exists</string>
+    <string name="rename_error">Could not rename</string>
+    <string name="delete_error">Could not delete</string>
+
+    <string name="search">Search</string>
+    <string name="all">All</string>
+    <string name="no_products_in_pantry">No products in the pantry</string>
+    <string name="add_to_pantry">Add to pantry</string>
+    <string name="product">Product</string>
+    <string name="share_list_chooser">Share list</string>
+    <string name="copy_list_content">Copy list content</string>
+    <string name="share_with_user">Share list with user</string>
+    <string name="no_category">No category</string>
+    <string name="unit_default">u</string>
+
+    <string name="minus">-</string>
+    <string name="plus">+</string>
+
+    <!-- Dialog confirmations -->
+    <string name="no">No</string>
+    <string name="yes">Yes</string>
+
+    <string name="delete_item_error">Could not delete item from list</string>
+    <string name="update_quantity_error">Could not update quantity</string>
+    <string name="change_state_error">Could not change state</string>
+    <string name="session_closed">Session closed</string>
+    <string name="total_label">Total: $%d</string>
+
+    <!-- Additional keys -->
+    <string name="add_item_error">Could not add product to list</string>
+    <string name="share_success">The list has been shared</string>
+    <string name="logout_confirm">Are you sure you want to log out?</string>
+    <string name="logout_title">Log out</string>
+    <string name="close_list">Close list</string>
+    <string name="finalize">Finalize</string>
+    <string name="add_product_to_list">Add product to list</string>
+    <string name="add_label">Add</string>
+    <string name="price_label">Price</string>
+    <string name="unit_label">Unit</string>
+    <string name="category_label">Category</string>
+
+    <!-- Verify screen -->
+    <string name="verify_account">Verify account</string>
+    <string name="email_to_verify">Email to verify</string>
+    <string name="code_label">Code</string>
+    <string name="enter_valid_email">Enter a valid email</string>
+    <string name="code_resent_fmt">Code resent to %s</string>
+    <string name="resend_error">Could not resend code (verify the email is registered)</string>
+    <string name="resend_button">Resend code</string>
+
+    <!-- Profile -->
+    <string name="profile_updated">Profile updated</string>
+    <string name="error_saving">Error saving</string>
+    <string name="theme_light">Light theme</string>
+
+    <!-- Generic errors -->
+    <string name="generic_error">Error</string>
+    <string name="login_error">Login error</string>
+
+    <!-- Additional app strings -->
+    <string name="products_title">Products</string>
+    <string name="no_products">No products</string>
+    <string name="create_error">Could not create</string>
+
+    <string name="processing">Processing...</string>
+    <string name="close_label">Close</string>
+    <string name="share_label">Share</string>
+    <string name="open_label">Open</string>
+    <string name="low_stock">Low stock</string>
+    <string name="pending_label">%d pending</string>
+    <string name="default_active_list_title">Supermarket - Today</string>
 </resources>

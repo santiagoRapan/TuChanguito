@@ -102,8 +102,8 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
                                     currentDestination = dest
                                     navController.navigate(dest.route) { launchSingleTop = true }
                                 },
-                                icon = { Icon(dest.icon, contentDescription = dest.label) },
-                                label = { Text(dest.label) }
+                                icon = { Icon(dest.icon, contentDescription = androidx.compose.ui.res.stringResource(id = dest.labelRes)) },
+                                label = { Text(androidx.compose.ui.res.stringResource(id = dest.labelRes)) }
                             )
                         }
                     }
@@ -124,8 +124,8 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
                 navigationSuiteItems = {
                     listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
                         item(
-                            icon = { Icon(dest.icon, contentDescription = dest.label, tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
-                            label = { Text(dest.label, color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
+                            icon = { Icon(dest.icon, contentDescription = androidx.compose.ui.res.stringResource(id = dest.labelRes), tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
+                            label = { Text(androidx.compose.ui.res.stringResource(id = dest.labelRes), color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
                             selected = currentDestination?.route == dest.route,
                             onClick = {
                                 currentDestination = dest

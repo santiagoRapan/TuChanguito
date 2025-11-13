@@ -7,13 +7,14 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.tuchanguito.R
 
-sealed class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
-    data object Home: TopLevelDest("home", "Inicio", Icons.Filled.Home)
-    data object Products: TopLevelDest("products", "Productos", Icons.Filled.Fastfood)
-    data object Lists: TopLevelDest("lists", "Listas", Icons.Filled.List)
-    data object Pantry: TopLevelDest("pantry", "Alacena", Icons.Filled.Kitchen)
-    data object Profile: TopLevelDest("profile", "Perfil", Icons.Filled.AccountCircle)
+sealed class TopLevelDest(val route: String, val labelRes: Int, val icon: ImageVector) {
+    data object Home: TopLevelDest("home", R.string.home, Icons.Filled.Home)
+    data object Products: TopLevelDest("products", R.string.products_title, Icons.Filled.Fastfood)
+    data object Lists: TopLevelDest("lists", R.string.lists, Icons.Filled.List)
+    data object Pantry: TopLevelDest("pantry", R.string.pantry, Icons.Filled.Kitchen)
+    data object Profile: TopLevelDest("profile", R.string.profile, Icons.Filled.AccountCircle)
 }
 
 object Routes {

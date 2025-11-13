@@ -43,6 +43,11 @@ fun HomeScreen(
         repo.itemsForList(active.id).collectAsState(initial = emptyList())
     } else remember { mutableStateOf(emptyList()) }
 
+    val newListLabel = stringResource(id = R.string.new_list)
+    val newProductLabel = stringResource(id = R.string.new_product)
+    val configureCategoriesLabel = stringResource(id = R.string.configure_categories)
+    val lowStockLabel = stringResource(id = R.string.low_stock)
+
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) },
         contentWindowInsets = WindowInsets.systemBars
@@ -53,12 +58,12 @@ fun HomeScreen(
             ActiveListCard(active, items, onOpenList)
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                QuickAction("Nueva lista") { onOpenList(newList()) }
-                QuickAction("Nuevo producto", onNewProduct)
-                QuickAction("Configurar categorias", onConfigureCategories)
+                QuickAction(newListLabel) { onOpenList(newList()) }
+                QuickAction(newProductLabel, onNewProduct)
+                QuickAction(configureCategoriesLabel, onConfigureCategories)
             }
             Spacer(Modifier.height(16.dp))
-            Text("Bajo stock", style = MaterialTheme.typography.titleLarge)
+            Text(lowStockLabel, style = MaterialTheme.typography.titleLarge)
             // In a full implementation, list pantry items under stock threshold
         }
     }
@@ -70,7 +75,7 @@ private fun ActiveListCard(active: ShoppingList?, items: List<ListItem>, onOpen:
     val progress = if (items.isEmpty()) 0f else acquiredCount.toFloat() / items.size.toFloat()
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = ButtonBlue) {
         Column(Modifier.padding(16.dp)) {
-            Text(active?.title ?: "Supermercado - Hoy", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(active?.title ?: stringResource(id = R.string.default_active_list_title), color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)), color = Color.White, trackColor = Color(0xFF8ECBF5))
             Spacer(Modifier.height(8.dp))
@@ -79,7 +84,7 @@ private fun ActiveListCard(active: ShoppingList?, items: List<ListItem>, onOpen:
                 Text("$${total(items)}", color = Color.White)
             }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { if (active != null) onOpen(active.id) }, colors = ButtonDefaults.buttonColors(containerColor = ButtonBlue, contentColor = Color.White)) { Text("Abrir") }
+            Button(onClick = { if (active != null) onOpen(active.id) }, colors = ButtonDefaults.buttonColors(containerColor = ButtonBlue, contentColor = Color.White)) { Text(stringResource(id = R.string.open_label)) }
         }
     }
 }

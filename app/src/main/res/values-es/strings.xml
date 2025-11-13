@@ -9,7 +9,7 @@
     <string name="no_account_create">¿No tenes cuenta? Crear cuenta.</string>
     <string name="home">Inicio</string>
     <string name="lists">Listas</string>
-    <string name="pantry">Alacenas</string>
+    <string name="pantry">Alacena</string>
     <string name="profile">Perfil</string>
     <string name="new_list">Nueva lista</string>
     <string name="new_product">Nuevo producto</string>
@@ -17,4 +17,134 @@
     <string name="pending">pendientes</string>
     <string name="open">Abrir</string>
     <string name="total_cost">Costo total</string>
+
+    <!-- Added keys for UI screens -->
+    <string name="modify_password">Modificar contraseña</string>
+    <string name="back">Volver</string>
+    <string name="verify_identity">Verificá tu identidad</string>
+    <string name="current_password">Contraseña actual</string>
+    <string name="verify">Verificar</string>
+    <string name="choose_new_password">Elegí una nueva contraseña</string>
+    <string name="new_password">Nueva contraseña</string>
+    <string name="confirm_new_password">Confirmar nueva contraseña</string>
+    <string name="complete_both_fields">Completá ambos campos</string>
+    <string name="passwords_do_not_match">Las contraseñas no coinciden</string>
+    <string name="error_changing_password">Error al cambiar contraseña</string>
+    <string name="save_new_password">Guardar nueva contraseña</string>
+
+    <string name="user_data">Datos de usuario</string>
+    <string name="name">Nombre</string>
+    <string name="surname">Apellido</string>
+    <string name="edit_profile">Editar perfil</string>
+    <string name="change_password">Cambiar contraseña</string>
+    <string name="save_changes">Guardar cambios</string>
+    <string name="cancel">Cancelar</string>
+    <string name="personalization">Personalización</string>
+    <string name="loading_user_error">Error al cargar usuario</string>
+
+    <string name="categories">Categorías</string>
+    <string name="add">Añadir</string>
+    <string name="create_list">Crear lista</string>
+    <string name="create">Crear</string>
+    <string name="create_list_dialog_title">Nueva lista</string>
+    <string name="list_name_label">Nombre de la lista</string>
+    <string name="list_already_exists">Ya existe una lista con ese nombre</string>
+    <string name="rename_error">No se pudo renombrar</string>
+    <string name="delete_error">No se pudo eliminar</string>
+
+    <string name="search">Buscar</string>
+    <string name="all">Todas</string>
+    <string name="no_products_in_pantry">Sin productos en la alacena</string>
+    <string name="add_to_pantry">Agregar a la alacena</string>
+    <string name="product">Producto</string>
+    <string name="share_list_chooser">Compartir lista</string>
+    <string name="copy_list_content">Copiar contenido de la lista</string>
+    <string name="share_with_user">Compartir lista con usuario</string>
+    <string name="no_category">Sin categoría</string>
+    <string name="unit_default">u</string>
+
+    <string name="minus">-</string>
+    <string name="plus">+</string>
+
+    <!-- Dialog confirmations -->
+    <string name="no">No</string>
+    <string name="yes">Sí</string>
+
+    <string name="delete_item_error">No se pudo eliminar el producto de la lista</string>
+    <string name="update_quantity_error">No se pudo actualizar la cantidad</string>
+    <string name="change_state_error">No se pudo cambiar el estado</string>
+    <string name="session_closed">Sesión cerrada</string>
+    <string name="total_label">Total: $%d</string>
+
+    <!-- Additional keys -->
+    <string name="add_item_error">No se pudo agregar el producto a la lista</string>
+    <string name="share_success">La lista ha sido compartida</string>
+    <string name="logout_confirm">¿Estás seguro que querés cerrar la sesión?</string>
+    <string name="logout_title">Cerrar sesión</string>
+    <string name="close_list">Cerrar lista</string>
+    <string name="finalize">Finalizar</string>
+    <string name="add_product_to_list">Agregar producto a la lista</string>
+    <string name="add_label">Añadir</string>
+    <string name="price_label">Precio</string>
+    <string name="unit_label">Unidad</string>
+    <string name="category_label">Categoría</string>
+
+    <!-- Verify screen -->
+    <string name="verify_account">Verificar cuenta</string>
+    <string name="email_to_verify">Email a verificar</string>
+    <string name="code_label">Código</string>
+    <string name="enter_valid_email">Ingresa un email válido</string>
+    <string name="code_resent_fmt">Código reenviado a %s</string>
+    <string name="resend_error">No se pudo reenviar código (verifica que el email esté registrado)</string>
+    <string name="resend_button">Reenviar código</string>
+
+    <!-- Profile -->
+    <string name="profile_updated">Perfil actualizado</string>
+    <string name="error_saving">Error al guardar</string>
+    <string name="theme_light">Tema claro</string>
+
+    <!-- Generic errors -->
+    <string name="generic_error">Error</string>
+    <string name="login_error">Error de inicio de sesión</string>
+
+    <!-- Additional app strings -->
+    <string name="products_title">Productos</string>
+    <string name="no_products">Sin productos</string>
+    <string name="create_error">No se pudo crear</string>
+
+    <string name="processing">Procesando...</string>
+    <string name="close_label">Cerrar</string>
+    <string name="share_label">Compartir</string>
+    <string name="open_label">Abrir</string>
+
+    <!-- Share/Finalize/Dialog strings -->
+    <string name="share_dialog_title">Compartir lista</string>
+    <string name="share_enter_email">Ingresa el email del usuario con quien deseas compartir la lista</string>
+    <string name="invalid_email">Ingresa un email válido</string>
+    <string name="share_button">Compartir</string>
+
+    <string name="finalize_question">Qué deseas hacer al finalizar?</string>
+    <string name="add_purchased_to_pantry">Agregar productos comprados a la alacena</string>
+    <string name="move_not_purchased">Mover productos no comprados a otra lista</string>
+    <string name="select_list">Seleccionar lista</string>
+    <string name="create_new">Crear nueva</string>
+    <string name="new_list_name_label">Nombre de la nueva lista</string>
+    <string name="select_destination">Selecciona una lista destino:</string>
+    <string name="no_lists_available">No hay listas disponibles</string>
+
+    <string name="loading_categories_error">Error cargando categorías</string>
+    <string name="loading_products_error">Error cargando productos</string>
+
+    <string name="name_label">Nombre</string>
+    <string name="email_label">Email</string>
+    <string name="low_stock">Bajo stock</string>
+    <string name="pending_label">%d pendientes</string>
+    <string name="default_active_list_title">Supermercado - Hoy</string>
+
+    <!-- Share error messages -->
+    <string name="share_error_404">No encontramos un usuario registrado con ese email</string>
+    <string name="share_error_409">Ya compartiste esta lista con ese email</string>
+    <string name="share_error_400">No se pudo compartir la lista. Verifica el email.</string>
+    <string name="share_error_unauthorized">No estás autorizado para realizar esta acción</string>
+    <string name="share_error_default">No se pudo compartir la lista</string>
 </resources>

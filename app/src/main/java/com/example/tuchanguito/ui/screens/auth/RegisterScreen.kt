@@ -8,8 +8,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.PreferencesManager
 import kotlinx.coroutines.launch
@@ -23,6 +25,16 @@ fun RegisterScreen(onRegistered: () -> Unit) {
     val snackbarHostState = remember { SnackbarHostState() }
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
+    val titleLabel = stringResource(id = R.string.register)
+    val backLabel = stringResource(id = R.string.back)
+    val nameLabel = stringResource(id = R.string.name)
+    val emailLabel = stringResource(id = R.string.email)
+    val passwordLabel = stringResource(id = R.string.password)
+    val confirmPasswordLabel = stringResource(id = R.string.confirm_new_password)
+    val passwordsNotMatchLabel = stringResource(id = R.string.passwords_do_not_match)
+    val registeringLabel = stringResource(id = R.string.register)
+    val genericErrorLabel = stringResource(id = R.string.generic_error)
+
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -35,10 +47,10 @@ fun RegisterScreen(onRegistered: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Crear cuenta") },
+                title = { Text(titleLabel) },
                 navigationIcon = {
                     IconButton(onClick = { backDispatcher?.onBackPressed() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 }
             )
@@ -47,16 +59,16 @@ fun RegisterScreen(onRegistered: () -> Unit) {
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp), verticalArrangement = Arrangement.Center) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
+            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(nameLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
+            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(emailLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
+            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(passwordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = confirm, onValueChange = { confirm = it }, label = { Text("Confirmar contraseña") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
+            OutlinedTextField(value = confirm, onValueChange = { confirm = it }, label = { Text(confirmPasswordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
             if (!passwordsMatch && (password.isNotEmpty() || confirm.isNotEmpty())) {
                 Spacer(Modifier.height(6.dp))
-                Text(text = "Las contraseñas no coinciden", color = MaterialTheme.colorScheme.error)
+                Text(text = passwordsNotMatchLabel, color = MaterialTheme.colorScheme.error)
             }
             if (error != null) { Spacer(Modifier.height(8.dp)); Text(text = error!!, color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(12.dp))
@@ -74,18 +86,18 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                             prefs.setPendingCredentials(email.trim(), password)
                             onRegistered()
                         }.onFailure {
-                            val msg = it.message ?: "Error"
+                            val msg = it.message ?: genericErrorLabel
                             snackbarHostState.showSnackbar(msg)
                             error = msg
                         }
                     } catch (t: Throwable) {
-                        val msg = t.message ?: "Error"
+                        val msg = t.message ?: genericErrorLabel
                         snackbarHostState.showSnackbar(msg)
                         error = msg
                     } finally { isLoading = false }
                 }
             }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && passwordsMatch) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Registrarse")
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(registeringLabel)
             }
         }
     }

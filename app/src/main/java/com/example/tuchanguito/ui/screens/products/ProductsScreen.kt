@@ -11,8 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import kotlinx.coroutines.launch
 import androidx.compose.material3.SwipeToDismissBox
@@ -30,6 +32,15 @@ fun ProductsScreen() {
     val scope = rememberCoroutineScope()
 
     val snack = remember { SnackbarHostState() }
+    val productsTitle = stringResource(id = R.string.products_title)
+    val newProductDesc = stringResource(id = R.string.new_product)
+    val searchLabel = stringResource(id = R.string.search)
+    val allLabel = stringResource(id = R.string.all)
+    val noProductsLabel = stringResource(id = R.string.no_products)
+    val createErrorLabel = stringResource(id = R.string.create_error)
+    val deleteErrorLabel = stringResource(id = R.string.delete_error)
+    val editLabel = stringResource(id = R.string.edit_profile) // reuse edit label
+    val deleteLabel = stringResource(id = R.string.delete_error)
 
     // Filters controlled by UI
     var query by rememberSaveable { mutableStateOf("") }
@@ -46,7 +57,7 @@ fun ProductsScreen() {
     // Initial catalog sync clears local ghosts but UI below uses server lists directly
     LaunchedEffect(Unit) {
         val res = repo.syncCatalog()
-        if (res.isFailure) snack.showSnackbar(res.exceptionOrNull()?.message ?: "No se pudo sincronizar catálogo")
+        if (res.isFailure) snack.showSnackbar(res.exceptionOrNull()?.message ?: createErrorLabel)
     }
 
     // Reload server categories whenever query changes (chips should only show categories with products)
@@ -70,14 +81,14 @@ fun ProductsScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Productos") },
+                title = { Text(productsTitle) },
                 windowInsets = TopAppBarDefaults.windowInsets
             )
         },
         snackbarHost = { SnackbarHost(snack) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreate = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nuevo producto")
+                Icon(Icons.Default.Add, contentDescription = newProductDesc)
             }
         },
         contentWindowInsets = WindowInsets.systemBars
@@ -94,7 +105,7 @@ fun ProductsScreen() {
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar") },
+                label = { Text(searchLabel) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
@@ -105,7 +116,7 @@ fun ProductsScreen() {
                     FilterChip(
                         selected = selectedCategoryId == null,
                         onClick = { selectedCategoryId = null },
-                        label = { Text("Todas") }
+                        label = { Text(allLabel) }
                     )
                 }
                 items(remoteCategories.size) { index ->
@@ -127,7 +138,7 @@ fun ProductsScreen() {
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 if (remoteProducts.isEmpty()) {
-                    item { Text("Sin productos", style = MaterialTheme.typography.bodyMedium) }
+                    item { Text(noProductsLabel, style = MaterialTheme.typography.bodyMedium) }
                 } else {
                     items(remoteProducts.size, key = { idx -> remoteProducts[idx].id ?: idx.toLong() }) { i ->
                         val p = remoteProducts[i]
@@ -138,7 +149,7 @@ fun ProductsScreen() {
                                         val id = p.id ?: return@launch
                                         val res = runCatching { repo.deleteProductRemote(id) }
                                         if (res.isFailure) {
-                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: "No se pudo eliminar")
+                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
                                         } else {
                                             // Actualiza UI localmente para evitar un GET extra
                                             remoteProducts = remoteProducts.filterNot { it.id == id }
@@ -181,14 +192,14 @@ fun ProductsScreen() {
                                         else -> 0.0
                                     }
                                     val priceStr = "%.2f".format(priceVal)
-                                    Text("Precio: $" + priceStr)
+                                    Text(stringResource(id = R.string.price_label) + ": $" + priceStr)
                                 },
                                 trailingContent = {
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         IconButton(onClick = { editingProductId = p.id }) {
                                             Icon(
                                                 imageVector = Icons.Filled.Edit,
-                                                contentDescription = "Editar",
+                                                contentDescription = editLabel,
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                         }
@@ -197,7 +208,7 @@ fun ProductsScreen() {
                                                 val id = p.id ?: return@launch
                                                 val res = runCatching { repo.deleteProductRemote(id) }
                                                 if (res.isFailure) {
-                                                    snack.showSnackbar(res.exceptionOrNull()?.message ?: "No se pudo eliminar")
+                                                    snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
                                                 } else {
                                                     remoteProducts = remoteProducts.filterNot { it.id == id }
                                                 }
@@ -205,7 +216,7 @@ fun ProductsScreen() {
                                         }) {
                                             Icon(
                                                 imageVector = Icons.Filled.Delete,
-                                                contentDescription = "Eliminar",
+                                                contentDescription = deleteLabel,
                                                 tint = MaterialTheme.colorScheme.error
                                             )
                                         }
@@ -244,25 +255,25 @@ fun ProductsScreen() {
                             remoteCategories = repo.categoriesForQuery(query)
                         } catch (t: Throwable) {
                             // Surface the message instead of crashing the app
-                            snack.showSnackbar(t.message ?: "No se pudo crear el producto")
+                            snack.showSnackbar(t.message ?: createErrorLabel)
                         } finally { busy = false }
                     }
-                }, enabled = valid && !busy) { Text("Crear") }
+                }, enabled = valid && !busy) { Text(stringResource(id = R.string.create)) }
             },
-            dismissButton = { TextButton(onClick = { if (!busy) showCreate = false }) { Text("Cancelar") } },
-            title = { Text("Nuevo producto") },
+            dismissButton = { TextButton(onClick = { if (!busy) showCreate = false }) { Text(stringResource(id = R.string.cancel)) } },
+            title = { Text(stringResource(id = R.string.new_product)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") }, singleLine = true)
-                    OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text("Precio") }, singleLine = true)
-                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Unidad") }, singleLine = true)
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)
+                    OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text(stringResource(id = R.string.price_label)) }, singleLine = true)
+                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(stringResource(id = R.string.unit_label)) }, singleLine = true)
                     // Selector/entrada de categoría: elegí existente o escribí una nueva
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
                             value = if (categoryId != null) remoteCategories.firstOrNull { it.id == categoryId }?.name ?: categoryInput else categoryInput,
                             onValueChange = { input -> categoryInput = input; categoryId = null },
-                            label = { Text("Categoría") },
+                            label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
@@ -304,24 +315,24 @@ fun ProductsScreen() {
                             remoteProducts = repo.searchProductsDTO(query, selectedCategoryId)
                             remoteCategories = repo.categoriesForQuery(query)
                         } catch (t: Throwable) {
-                            snack.showSnackbar(t.message ?: "No se pudo guardar")
+                            snack.showSnackbar(t.message ?: createErrorLabel)
                         } finally { busy = false }
                     }
-                }, enabled = valid && !busy) { Text("Guardar") }
+                }, enabled = valid && !busy) { Text(stringResource(id = R.string.save_changes)) }
             },
-            dismissButton = { TextButton(onClick = { if (!busy) editingProductId = null }) { Text("Cancelar") } },
-            title = { Text("Editar producto") },
+            dismissButton = { TextButton(onClick = { if (!busy) editingProductId = null }) { Text(stringResource(id = R.string.cancel)) } },
+            title = { Text(stringResource(id = R.string.new_product)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") }, singleLine = true)
-                    OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text("Precio") }, singleLine = true)
-                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Unidad") }, singleLine = true)
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)
+                    OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text(stringResource(id = R.string.price_label)) }, singleLine = true)
+                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(stringResource(id = R.string.unit_label)) }, singleLine = true)
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
                             value = if (categoryId != null) remoteCategories.firstOrNull { it.id == categoryId }?.name ?: categoryInput else categoryInput,
                             onValueChange = { input -> categoryInput = input; categoryId = null },
-                            label = { Text("Categoría") },
+                            label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier.menuAnchor().fillMaxWidth()
                         )

@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.PreferencesManager
 import kotlinx.coroutines.launch
@@ -22,6 +24,17 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val repo = remember { AppRepository.get(context) }
     val scope = rememberCoroutineScope()
+
+    val verifyAccountLabel = stringResource(id = R.string.verify_account)
+    val backLabel = stringResource(id = R.string.back)
+    val emailToVerifyLabel = stringResource(id = R.string.email_to_verify)
+    val codeLabel = stringResource(id = R.string.code_label)
+    val enterValidEmailLabel = stringResource(id = R.string.enter_valid_email)
+    val codeResentFmt = stringResource(id = R.string.code_resent_fmt)
+    val resendErrorLabel = stringResource(id = R.string.resend_error)
+    val resendButtonLabel = stringResource(id = R.string.resend_button)
+    // Hoisted non-composable labels for coroutine usage
+    val verifyErrorLabel = stringResource(id = R.string.error_changing_password)
 
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -46,14 +59,14 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Verificar cuenta") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Volver") } }
+            title = { Text(verifyAccountLabel) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel) } }
         )
     }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
-            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email a verificar") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
+            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(emailToVerifyLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Código") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
+            OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text(codeLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             if (error != null) { Spacer(Modifier.height(8.dp)); Text(text = error!!, color = MaterialTheme.colorScheme.error) }
             if (resendMessage != null) { Spacer(Modifier.height(8.dp)); Text(text = resendMessage!!, color = MaterialTheme.colorScheme.primary) }
             Spacer(Modifier.height(12.dp))
@@ -72,7 +85,7 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                                         prefs.clearPendingCredentials()
                                         onVerified() // Go to Home (token set)
                                     } else {
-                                        val msg = loginResult.exceptionOrNull()?.message ?: "Error"
+                                        val msg = loginResult.exceptionOrNull()?.message ?: verifyErrorLabel
                                         error = msg // inline only
                                     }
                                 } else {
@@ -84,16 +97,16 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                                 onBack()
                             }
                         } else {
-                            val msg = verifyResult.exceptionOrNull()?.message ?: "Error"
+                            val msg = verifyResult.exceptionOrNull()?.message ?: verifyErrorLabel
                             error = msg // inline only
                         }
                     } catch (t: Throwable) {
-                        val msg = t.message ?: "Error"
+                        val msg = t.message ?: verifyErrorLabel
                         error = msg // inline only
                     } finally { isLoading = false }
                 }
             }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Verificar")
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(verifyAccountLabel)
             }
             Spacer(Modifier.height(12.dp))
             Button(onClick = {
@@ -103,16 +116,16 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                     try {
                         val targetEmail = email.trim()
                         if (!isEmailValid) {
-                            resendMessage = "Ingresa un email válido"
+                            resendMessage = enterValidEmailLabel
                         } else {
                             runCatching { repo.resendVerificationCode(targetEmail) }
-                                .onSuccess { resendMessage = "Código reenviado a $targetEmail" }
-                                .onFailure { resendMessage = it.message ?: "No se pudo reenviar código (verifica que el email esté registrado)" }
+                                .onSuccess { resendMessage = String.format(codeResentFmt, targetEmail) }
+                                .onFailure { resendMessage = it.message ?: resendErrorLabel }
                         }
                     } finally { resendLoading = false }
                 }
             }, enabled = isEmailValid && !resendLoading, modifier = Modifier.fillMaxWidth()) {
-                if (resendLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Reenviar código")
+                if (resendLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(resendButtonLabel)
             }
         }
     }

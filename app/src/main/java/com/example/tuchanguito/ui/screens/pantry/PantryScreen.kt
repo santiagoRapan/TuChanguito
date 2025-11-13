@@ -15,7 +15,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
@@ -33,6 +35,16 @@ fun PantryScreen() {
     val categories by repo.categories().collectAsState(initial = emptyList())
 
     val snack = remember { SnackbarHostState() }
+
+    // Hoisted localized strings (used in this composable scope)
+    val pantryTitle = stringResource(id = R.string.pantry)
+    val searchLabel = stringResource(id = R.string.search)
+    val allLabel = stringResource(id = R.string.all)
+    val noProductsLabel = stringResource(id = R.string.no_products_in_pantry)
+    val deleteErrorLabel = stringResource(id = R.string.delete_error)
+    val productLabel = stringResource(id = R.string.product)
+    val unitDefault = stringResource(id = R.string.unit_default)
+    val addItemError = stringResource(id = R.string.add_item_error)
 
     var query by rememberSaveable { mutableStateOf("") }
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -56,7 +68,7 @@ fun PantryScreen() {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Alacena") }) },
+        topBar = { TopAppBar(title = { Text(pantryTitle) }) },
         snackbarHost = { SnackbarHost(snack) },
         floatingActionButton = { FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) } },
         contentWindowInsets = WindowInsets.systemBars
@@ -66,7 +78,7 @@ fun PantryScreen() {
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar") },
+                label = { Text(searchLabel) },
                 singleLine = true
             )
 
@@ -74,7 +86,7 @@ fun PantryScreen() {
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
-                    FilterChip(selected = selectedCategoryId == null, onClick = { selectedCategoryId = null }, label = { Text("Todas") })
+                    FilterChip(selected = selectedCategoryId == null, onClick = { selectedCategoryId = null }, label = { Text(allLabel) })
                 }
                 items(chipCategories.size) { i ->
                     val (id, name) = chipCategories[i]
@@ -86,7 +98,7 @@ fun PantryScreen() {
 
             LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 88.dp)) {
                 if (pantryItems.isEmpty()) {
-                    item { Text("Sin productos en la alacena", style = MaterialTheme.typography.bodyMedium) }
+                    item { Text(noProductsLabel, style = MaterialTheme.typography.bodyMedium) }
                 } else {
                     items(pantryItems, key = { it.id }) { pi ->
                         val p = productById[pi.productId]
@@ -95,7 +107,7 @@ fun PantryScreen() {
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
                                     scope.launch {
                                         try { repo.deletePantryItem(pi.id) } catch (t: Throwable) {
-                                            snack.showSnackbar(t.message ?: "No se pudo eliminar")
+                                            snack.showSnackbar(t.message ?: deleteErrorLabel)
                                         }
                                     }
                                     true
@@ -128,8 +140,8 @@ fun PantryScreen() {
                             }
                         ) {
                             PantryRow(
-                                name = p?.name ?: "Producto",
-                                unit = p?.unit?.ifBlank { "u" } ?: "u",
+                                name = p?.name ?: productLabel,
+                                unit = p?.unit?.ifBlank { unitDefault } ?: unitDefault,
                                 quantity = pi.quantity,
                                 onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1) } },
                                 onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1) } },
@@ -171,7 +183,7 @@ fun PantryScreen() {
                         runCatching { repo.syncPantry() }
                         showAdd = false
                     } catch (t: Throwable) {
-                        snack.showSnackbar(t.message ?: "No se pudo agregar el producto a la alacena")
+                        snack.showSnackbar(t.message ?: addItemError)
                     }
                 }
             }
@@ -207,18 +219,27 @@ private fun AddPantryItemDialog(
         if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(8)
     }
 
+    // Local strings for this dialog (must be declared in the composable scope so all parts of the dialog can use them)
+    val addLabel = stringResource(id = R.string.add_label)
+    val cancelLabel = stringResource(id = R.string.cancel)
+    val addToPantryTitle = stringResource(id = R.string.add_to_pantry)
+    val productLabel = stringResource(id = R.string.product)
+    val priceLabel = stringResource(id = R.string.price_label)
+    val unitLabel = stringResource(id = R.string.unit_label)
+    val categoryLabel = stringResource(id = R.string.category_label)
+
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         confirmButton = {
-            TextButton(onClick = {
-                busy = true
-                val price = priceText.toDoubleOrNull()
-                onAdd(selectedId, if (selectedId == null) name else name.takeIf { it.isNotBlank() }, price, unit, category.ifBlank { null })
-                busy = false
-            }, enabled = !busy && (selectedId != null || name.isNotBlank())) { Text("Agregar") }
-        },
-        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text("Cancelar") } },
-        title = { Text("Agregar a la alacena") },
+             TextButton(onClick = {
+                  busy = true
+                  val price = priceText.toDoubleOrNull()
+                  onAdd(selectedId, if (selectedId == null) name else name.takeIf { it.isNotBlank() }, price, unit, category.ifBlank { null })
+                  busy = false
+              }, enabled = !busy && (selectedId != null || name.isNotBlank())) { Text(addLabel) }
+          },
+        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text(cancelLabel) } },
+        title = { Text(addToPantryTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -229,7 +250,7 @@ private fun AddPantryItemDialog(
                         selectedId = match?.id
                         if (match != null) prefill(match)
                     },
-                    label = { Text("Producto") },
+                    label = { Text(productLabel) },
                     singleLine = true
                 )
                 if (suggestions.isNotEmpty()) {
@@ -237,9 +258,9 @@ private fun AddPantryItemDialog(
                         TextButton(onClick = { selectedId = s.id; prefill(s); name = s.name }) { Text(s.name) }
                     }
                 }
-                OutlinedTextField(value = priceText, onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text("Precio (opcional)") }, singleLine = true)
-                OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Unidad") }, singleLine = true)
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría (opcional)") }, singleLine = true)
+                OutlinedTextField(value = priceText, onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text(priceLabel) }, singleLine = true)
+                OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(unitLabel) }, singleLine = true)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text(categoryLabel) }, singleLine = true)
             }
         }
     )

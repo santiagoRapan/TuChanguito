@@ -11,10 +11,27 @@
     <string name="lists">Lists</string>
     <string name="pantry">Pantry</string>
     <string name="profile">Profile</string>
-    <string name="new_list">New list</string>
-    <string name="new_product">New product</string>
-    <string name="configure_categories">Configure categories</string>
+    <string name="new_list">Crear lista</string>
+    <string name="new_product">Crear producto</string>
+    <string name="configure_categories">Configurar categorías</string>
     <string name="pending">pending</string>
     <string name="open">Open</string>
     <string name="total_cost">Total cost</string>
+    <!-- Home -->
+    <string name="home_active_list_title">Lista activa</string>
+    <string name="home_active_list_pending">%1$d pendientes</string>
+    <string name="home_active_list_total">Total: $%1$d</string>
+    <string name="home_active_list_open_button">Abrir lista</string>
+    <string name="home_active_list_empty_title">No hay listas activas</string>
+    <string name="home_active_list_empty_message">Crea una lista para comenzar a organizar tus compras.</string>
+    <string name="home_create_list_button">Crear lista</string>
+    <string name="home_quick_actions_title">Acciones rapidas</string>
+    <string name="home_quick_action_new_list_title">Nueva lista</string>
+    <string name="home_quick_action_new_list_subtitle">Arranca una lista vacia</string>
+    <string name="home_quick_action_new_product_title">Nuevo producto</string>
+    <string name="home_quick_action_new_product_subtitle">Registra un producto en tu catalogo</string>
+    <string name="home_quick_action_categories_title">Configurar categorias</string>
+    <string name="home_quick_action_categories_subtitle">Organiza productos por categoria</string>
+    <string name="home_low_stock_title">Bajo stock</string>
+    <string name="home_low_stock_empty">No hay productos con stock bajo.</string>
 </resources>

@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">TuChanguito</string>
     <string name="login">Sign in</string>
     <string name="register">Register</string>
@@ -6,18 +6,17 @@
     <string name="password">Password</string>
     <string name="remember_me">Remember me</string>
     <string name="forgot_password">Forgot your password?</string>
-    <string name="no_account_create">Do not have an account?</string>
+    <string name="no_account_create">Do not have an account? Create one.</string>
     <string name="home">Home</string>
     <string name="lists">Lists</string>
     <string name="pantry">Pantry</string>
     <string name="profile">Profile</string>
     <string name="new_list">Crear lista</string>
     <string name="new_product">Crear producto</string>
-    <string name="configure_categories">Configurar categorías</string>
+    <string name="configure_categories">Configurar categorias</string>
     <string name="pending">pending</string>
     <string name="open">Open</string>
     <string name="total_cost">Total cost</string>
-<<<<<<< HEAD
 
     <!-- Added keys for UI screens -->
     <string name="modify_password">Modify password</string>
@@ -148,8 +147,7 @@
     <string name="share_error_400">Could not share the list. Check the email.</string>
     <string name="share_error_unauthorized">You are not authorized to perform this action</string>
     <string name="share_error_default">Could not share the list</string>
-</resources>
-=======
+
     <!-- Home -->
     <string name="home_active_list_title">Lista activa</string>
     <string name="home_active_list_placeholder">Supermercado - Hoy</string>
@@ -159,7 +157,7 @@
     <string name="home_active_list_empty_title">No hay listas activas</string>
     <string name="home_active_list_empty_short">Todavia no tenes una lista activa.</string>
     <string name="home_create_list_button">Crear lista</string>
-    <string name="home_quick_actions_title">Acciones rápidas</string>
+    <string name="home_quick_actions_title">Acciones rapidas</string>
     <string name="home_quick_action_new_list_title">Nueva lista</string>
     <string name="home_quick_action_new_product_title">Nuevo producto</string>
     <string name="home_quick_action_categories_title">Configurar categorias</string>
@@ -170,4 +168,3 @@
     <string name="home_low_stock_unknown_product">Producto sin nombre</string>
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
 </resources>
->>>>>>> login

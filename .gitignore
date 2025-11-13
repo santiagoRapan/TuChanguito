@@ -24,11 +24,11 @@
 .cxx
 local.properties
 
-# Node
+# node modules...
 node_modules/
 **/node_modules/
 */API/node_modules
 */API/node_modules/*
-
+/node_modules
 # OS
 Thumbs.db

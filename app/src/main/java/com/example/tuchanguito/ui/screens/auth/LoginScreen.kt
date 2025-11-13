@@ -199,7 +199,7 @@ fun LoginScreen(
                             text = buildAnnotatedString {
                                 append(noAccountCreate)
                                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                                    append(stringResource(id = R.string.register))
+                                    append(" " + stringResource(id = R.string.register))
                                 }
                             },
                             color = ColorPrimary,

@@ -6,7 +6,7 @@
     <string name="password">Password</string>
     <string name="remember_me">Remember me</string>
     <string name="forgot_password">Forgot your password?</string>
-    <string name="no_account_create">Do not have an account? Create one.</string>
+    <string name="no_account_create">Do not have an account?</string>
     <string name="home">Home</string>
     <string name="lists">Lists</string>
     <string name="pantry">Pantry</string>

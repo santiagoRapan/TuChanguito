@@ -14,14 +14,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,10 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
 import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.ShoppingList
 import com.example.tuchanguito.ui.theme.ButtonBlue
 import com.example.tuchanguito.ui.theme.ColorPrimaryBorder
@@ -54,9 +52,6 @@ fun HomeScreen(
 
     val lists by repo.activeLists().collectAsState(initial = emptyList())
     val active = lists.firstOrNull()
-    val items by if (active != null) {
-        repo.itemsForList(active.id).collectAsState(initial = emptyList())
-    } else remember { mutableStateOf(emptyList()) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) },
@@ -71,7 +66,7 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            ActiveListSection(active, items, onOpenList, onCreateList)
+            ActiveListSection(active, onOpenList, onCreateList)
             QuickActionsSection(onCreateList, onNewProduct, onConfigureCategories)
             LowStockSection()
         }
@@ -81,55 +76,30 @@ fun HomeScreen(
 @Composable
 private fun ActiveListSection(
     active: ShoppingList?,
-    items: List<ListItem>,
     onOpenList: (Long) -> Unit,
     onCreateList: () -> Unit
 ) {
-    HomeSectionCard {
+    HomeSectionCard(containerColor = ButtonBlue) {
         Text(
             text = stringResource(id = R.string.home_active_list_title),
             style = MaterialTheme.typography.titleMedium,
-            color = PrimaryTextBlue,
+            color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(12.dp))
 
         if (active != null) {
-            val acquiredCount = items.count { it.acquired }
-            val pendingCount = items.size - acquiredCount
-            val progress = if (items.isEmpty()) 0f else acquiredCount.toFloat() / items.size.toFloat()
-
             Text(
                 text = active.title,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(id = R.string.home_active_list_pending, pendingCount),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = stringResource(id = R.string.home_active_list_total, total(items)),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(50)),
-                color = ButtonBlue,
-                trackColor = ButtonBlue.copy(alpha = 0.2f)
-            )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Button(
                     onClick = { onOpenList(active.id) },
-                    colors = ButtonDefaults.buttonColors(containerColor = ButtonBlue, contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = ButtonBlue)
                 ) {
                     Text(text = stringResource(id = R.string.home_active_list_open_button))
                 }
@@ -138,17 +108,16 @@ private fun ActiveListSection(
             Text(
                 text = stringResource(id = R.string.home_active_list_empty_title),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(id = R.string.home_active_list_empty_message),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                OutlinedButton(onClick = onCreateList) {
+                OutlinedButton(
+                    onClick = onCreateList,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.8f))
+                ) {
                     Text(text = stringResource(id = R.string.home_create_list_button))
                 }
             }
@@ -156,14 +125,30 @@ private fun ActiveListSection(
     }
 }
 
-private fun total(items: List<ListItem>): Int = items.sumOf { it.quantity * 100 } // demo pricing
-
 @Composable
 private fun QuickActionsSection(
     onCreateList: () -> Unit,
     onNewProduct: () -> Unit,
     onConfigureCategories: () -> Unit
 ) {
+    val actions = listOf(
+        QuickActionItem(
+            icon = Icons.Rounded.PlaylistAdd,
+            label = stringResource(id = R.string.home_quick_action_new_list_title),
+            onClick = onCreateList
+        ),
+        QuickActionItem(
+            icon = Icons.Rounded.AddShoppingCart,
+            label = stringResource(id = R.string.home_quick_action_new_product_title),
+            onClick = onNewProduct
+        ),
+        QuickActionItem(
+            icon = Icons.Rounded.Category,
+            label = stringResource(id = R.string.home_quick_action_categories_title),
+            onClick = onConfigureCategories
+        )
+    )
+
     HomeSectionCard {
         Text(
             text = stringResource(id = R.string.home_quick_actions_title),
@@ -172,32 +157,7 @@ private fun QuickActionsSection(
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.PlaylistAdd,
-                label = stringResource(id = R.string.home_quick_action_new_list_title),
-                description = stringResource(id = R.string.home_quick_action_new_list_subtitle),
-                onClick = onCreateList
-            )
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.AddShoppingCart,
-                label = stringResource(id = R.string.home_quick_action_new_product_title),
-                description = stringResource(id = R.string.home_quick_action_new_product_subtitle),
-                onClick = onNewProduct
-            )
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.Category,
-                label = stringResource(id = R.string.home_quick_action_categories_title),
-                description = stringResource(id = R.string.home_quick_action_categories_subtitle),
-                onClick = onConfigureCategories
-            )
-        }
+        QuickActionsRow(actions = actions)
     }
 }
 
@@ -222,6 +182,7 @@ private fun LowStockSection() {
 @Composable
 private fun HomeSectionCard(
     modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -229,7 +190,7 @@ private fun HomeSectionCard(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 1.dp,
         shadowElevation = 2.dp,
-        color = MaterialTheme.colorScheme.surface
+        color = containerColor
     ) {
         Column(
             modifier = Modifier
@@ -241,16 +202,28 @@ private fun HomeSectionCard(
 }
 
 @Composable
+private fun QuickActionsRow(actions: List<QuickActionItem>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        actions.forEach { action ->
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                action = action
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuickActionCard(
     modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    description: String,
-    onClick: () -> Unit
+    action: QuickActionItem
 ) {
     Surface(
-        modifier = modifier,
-        onClick = onClick,
+        modifier = modifier.height(132.dp),
+        onClick = action.onClick,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
@@ -258,8 +231,11 @@ private fun QuickActionCard(
         border = BorderStroke(1.dp, ColorPrimaryBorder)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
@@ -269,21 +245,23 @@ private fun QuickActionCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = action.icon,
                     contentDescription = null,
                     tint = ButtonBlue
                 )
             }
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = description,
+                text = action.label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
+
+private data class QuickActionItem(
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)

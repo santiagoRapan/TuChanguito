@@ -48,6 +48,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.data.AppRepository
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +74,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TuChanguitoApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val repo = remember { AppRepository.get(context) }
+    val scope = rememberCoroutineScope()
     val prefs = remember { PreferencesManager(context) }
     val authToken by prefs.authToken.collectAsState(initial = null)
     val navController = rememberNavController()
@@ -77,6 +83,15 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val layoutType = if (isLandscape) NavigationSuiteType.NavigationRail else NavigationSuiteType.NavigationBar
+
+    // Ensure default categories exist when user is logged in
+    LaunchedEffect(authToken) {
+        if (!authToken.isNullOrEmpty()) {
+            scope.launch {
+                repo.ensureDefaultCategories()
+            }
+        }
+    }
 
     if (authToken.isNullOrEmpty()) {
         AppNavGraph(

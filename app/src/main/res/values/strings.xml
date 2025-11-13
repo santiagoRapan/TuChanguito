@@ -147,4 +147,13 @@
     <string name="share_error_400">Could not share the list. Check the email.</string>
     <string name="share_error_unauthorized">You are not authorized to perform this action</string>
     <string name="share_error_default">Could not share the list</string>
+
+    <!-- Strings for ListsScreen -->
+    <string name="my_lists">My Lists</string>
+    <string name="no_lists_found">No lists found.</string>
+    <string name="rename_list_dialog_title">Rename List</string>
+    <string name="rename_list_content_description">Rename list</string>
+    <string name="delete_list_content_description">Delete list</string>
+    <string name="mark_as_recurrent">Mark as recurrent</string>
+    <string name="open_list">Open</string>
 </resources>

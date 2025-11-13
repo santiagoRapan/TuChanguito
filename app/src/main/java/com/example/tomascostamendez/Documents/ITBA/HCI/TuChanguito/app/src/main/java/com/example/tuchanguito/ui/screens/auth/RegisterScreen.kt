@@ -1,4 +1,6 @@
-// This is an accidental duplicate placeholder file created during automated edits.
-// The real RegisterScreen is at: app/src/main/java/com/example/tuchanguito/ui/screens/auth/RegisterScreen.kt
-// Left intentionally empty to avoid build conflicts.
+package com.example.tuchanguito.placeholder
 
+// Placeholder file created by automated edit. Left intentionally minimal and in a neutral package
+// to avoid interfering with real sources. No runtime effect.
+
+object _PlaceholderRegisterScreen

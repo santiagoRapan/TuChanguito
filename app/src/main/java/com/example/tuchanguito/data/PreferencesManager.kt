@@ -19,6 +19,7 @@ class PreferencesManager(private val context: Context) {
         val PENDING_EMAIL = stringPreferencesKey("pending_email")
         val PENDING_PASSWORD = stringPreferencesKey("pending_password")
         val CURRENT_PANTRY_ID = stringPreferencesKey("current_pantry_id")
+        val LAST_OPENED_LIST_ID = stringPreferencesKey("last_opened_list_id")
     }
 
     val theme: Flow<String> = context.dataStore.data.map { it[Keys.THEME] ?: "system" }
@@ -28,6 +29,7 @@ class PreferencesManager(private val context: Context) {
     val pendingEmail: Flow<String?> = context.dataStore.data.map { it[Keys.PENDING_EMAIL] }
     val pendingPassword: Flow<String?> = context.dataStore.data.map { it[Keys.PENDING_PASSWORD] }
     val currentPantryId: Flow<Long?> = context.dataStore.data.map { it[Keys.CURRENT_PANTRY_ID]?.toLongOrNull() }
+    val lastOpenedListId: Flow<Long?> = context.dataStore.data.map { it[Keys.LAST_OPENED_LIST_ID]?.toLongOrNull() }
 
     suspend fun setTheme(value: String) { context.dataStore.edit { it[Keys.THEME] = value } }
     suspend fun setRememberMe(value: Boolean) { context.dataStore.edit { it[Keys.REMEMBER_ME] = value } }
@@ -36,4 +38,5 @@ class PreferencesManager(private val context: Context) {
     suspend fun setPendingCredentials(email: String, password: String) { context.dataStore.edit { it[Keys.PENDING_EMAIL] = email; it[Keys.PENDING_PASSWORD] = password } }
     suspend fun clearPendingCredentials() { context.dataStore.edit { it.remove(Keys.PENDING_EMAIL); it.remove(Keys.PENDING_PASSWORD) } }
     suspend fun setCurrentPantryId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.CURRENT_PANTRY_ID) else it[Keys.CURRENT_PANTRY_ID] = id.toString() } }
+    suspend fun setLastOpenedListId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.LAST_OPENED_LIST_ID) else it[Keys.LAST_OPENED_LIST_ID] = id.toString() } }
 }

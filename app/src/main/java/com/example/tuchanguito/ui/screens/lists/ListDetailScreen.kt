@@ -16,26 +16,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.network.dto.ListItemDTO
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.text.KeyboardOptions
-import retrofit2.HttpException
-import androidx.compose.ui.platform.LocalFocusManager
-import java.net.SocketTimeoutException
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import kotlin.math.roundToInt
+import com.example.tuchanguito.R
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.res.stringResource
-import com.example.tuchanguito.R
+import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.text.KeyboardOptions
+import retrofit2.HttpException
+import java.net.SocketTimeoutException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,6 +103,16 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         if (listItems.isNotEmpty()) listItems.map { it.productId } else remoteItems.map { it.product.id ?: -1L }
     }
 
+    // Progress: how many distinct products are marked acquired/purchased
+    val itemsCount = remember(uiProducts) { uiProducts.size }
+    val acquiredCount = remember(listItems, remoteItems) {
+        if (listItems.isNotEmpty()) listItems.count { it.acquired }
+        else remoteItems.count { it.purchased }
+    }
+    val progressFraction = remember(itemsCount, acquiredCount) { if (itemsCount == 0) 0f else (acquiredCount.toFloat() / itemsCount.toFloat()).coerceIn(0f, 1f) }
+    // Animated progress for smooth transitions
+    val animatedProgress by animateFloatAsState(targetValue = progressFraction, animationSpec = tween(durationMillis = 400))
+
     val total = remember(uiProducts, products, listItems, remoteItems) {
         uiProducts.sumOf { pid ->
             val qty = listItems.firstOrNull { it.productId == pid }?.quantity
@@ -119,7 +132,28 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(list?.title ?: defaultListTitle) }, actions = {
+            TopAppBar(title = {
+                // Title on the left, compact progress bar on the right
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = list?.title ?: defaultListTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    LinearProgressIndicator(
+                        progress = animatedProgress,
+                        modifier = Modifier.width(160.dp).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    // Animated percentage label
+                    val percent = (animatedProgress * 100f).roundToInt()
+                    Text(text = "$percent%", style = MaterialTheme.typography.bodySmall)
+                }
+            }, actions = {
                 IconButton(onClick = {
                     // Share list via app share sheet (copy text)
                     val body = buildString {

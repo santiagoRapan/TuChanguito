@@ -345,8 +345,54 @@ class AppRepository private constructor(context: Context){
         }
     }
 
+    private suspend fun cleanupBrokenListItems(listId: Long) {
+        var page = 1
+        val perPage = 100
+        val toDelete = mutableListOf<Long>()
+        while (true) {
+            val resp = runCatching { api.shopping.getItemsPageRaw(listId, page = page, perPage = perPage) }.getOrNull()
+            val text = resp?.body()?.string()
+            if (text.isNullOrBlank()) break
+            val batch = try {
+                val moshi = com.squareup.moshi.Moshi.Builder().build()
+                val mapAdapter = moshi.adapter(Map::class.java)
+                val listItemAdapter = moshi.adapter(List::class.java)
+                val itemsAny: List<Any?> = when {
+                    text.trim().startsWith("{") -> {
+                        val asMap = mapAdapter.fromJson(text) as? Map<*, *>
+                        val data = asMap?.get("data")
+                        when (data) { is List<*> -> data as List<Any?>; else -> emptyList() }
+                    }
+                    text.trim().startsWith("[") -> listItemAdapter.fromJson(text) as? List<Any?> ?: emptyList()
+                    else -> emptyList()
+                }
+                itemsAny.mapNotNull { any ->
+                    val m = any as? Map<*, *> ?: return@mapNotNull null
+                    val id = (m["id"] as? Number)?.toLong() ?: return@mapNotNull null
+                    val product = m["product"]
+                    val productId = when (product) {
+                        is Map<*, *> -> (product["id"] as? Number)?.toLong()
+                        else -> null
+                    }
+                    if (productId == null) id else null
+                }
+            } catch (_: Throwable) { emptyList<Long>() }
+            toDelete += batch
+            // Heurística de fin: si menos que perPage, probablemente no hay más
+            if (batch.size < perPage) break
+            page++
+        }
+        if (toDelete.isNotEmpty()) {
+            toDelete.distinct().forEach { liId -> runCatching { api.shopping.deleteItem(listId, liId) } }
+            runCatching { syncListItems(listId) }
+        }
+    }
+
     suspend fun addItemRemote(listId: Long, productId: Long, quantity: Int = 1, unit: String = "u"): Long {
         return try {
+            // Limpieza preventiva para evitar que el POST falle en el servidor por ítems corruptos
+            cleanupBrokenListItems(listId)
+
             val resp = api.shopping.addItem(listId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = quantity.toDouble(), unit = unit))
             if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
             runCatching { api.shopping.getList(listId) }.onSuccess { dto ->
@@ -387,6 +433,15 @@ class AppRepository private constructor(context: Context){
                 } else {
                     throw t
                 }
+            } else if (code == 500) {
+                // Si por alguna razón ocurrió el 500 igualmente, intentamos una limpieza y reintento único
+                cleanupBrokenListItems(listId)
+                val retry = api.shopping.addItem(listId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = quantity.toDouble(), unit = unit))
+                if (!retry.isSuccessful) throw retrofit2.HttpException(retry)
+                val remoteItems = fetchListItemsEither(listId)
+                remoteItems.firstOrNull { it.product.id == productId }?.id
+                    ?: remoteItems.maxByOrNull { it.id }?.id
+                    ?: 0L
             } else {
                 throw t
             }

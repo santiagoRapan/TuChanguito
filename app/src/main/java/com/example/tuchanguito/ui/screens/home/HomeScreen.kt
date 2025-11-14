@@ -43,8 +43,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.model.ShoppingList
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.ui.theme.ButtonBlue
 import com.example.tuchanguito.ui.theme.ColorPrimaryBorder
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
@@ -58,10 +59,11 @@ fun HomeScreen(
     onCreateList: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
-
-    val lists by repo.activeLists().collectAsState(initial = emptyList())
-    val active = lists.firstOrNull()
+    val app = context.applicationContext as MyApplication
+    val viewModel: HomeViewModel = viewModel(
+        factory = remember(app.shoppingListsRepository) { HomeViewModelFactory(app.shoppingListsRepository) }
+    )
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(id = R.string.app_name), color = PrimaryTextBlue) }) },
@@ -75,7 +77,7 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            ActiveListSection(active, onOpenList, onCreateList)
+            ActiveListSection(uiState.activeList, onOpenList, onCreateList)
             QuickActionsSection(onCreateList, onNewProduct, onConfigureCategories)
             LowStockSection()
         }
@@ -84,7 +86,7 @@ fun HomeScreen(
 
 @Composable
 private fun ActiveListSection(
-    active: ShoppingList?,
+    active: ShoppingListDto?,
     onOpenList: (Long) -> Unit,
     onCreateList: () -> Unit
 ) {
@@ -99,7 +101,7 @@ private fun ActiveListSection(
 
         if (active != null) {
             Text(
-                text = active.title,
+                text = active.name,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.White

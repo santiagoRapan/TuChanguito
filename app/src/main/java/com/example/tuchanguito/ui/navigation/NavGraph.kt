@@ -12,6 +12,7 @@ import com.example.tuchanguito.ui.screens.auth.RegisterScreen
 import com.example.tuchanguito.ui.screens.auth.VerifyScreen
 import com.example.tuchanguito.ui.screens.home.HomeScreen
 import com.example.tuchanguito.ui.screens.lists.ListDetailScreen
+import com.example.tuchanguito.ui.screens.lists.ListHistoryScreen
 import com.example.tuchanguito.ui.screens.lists.ListsScreen
 import com.example.tuchanguito.ui.screens.pantry.PantryScreen
 import com.example.tuchanguito.ui.screens.profile.ProfileScreen
@@ -50,12 +51,23 @@ fun AppNavGraph(
                 onCreateList = { navController.navigate(TopLevelDest.Lists.route) }
             )
         }
-        composable(TopLevelDest.Lists.route) { ListsScreen(onOpenList = { id -> navController.navigate("lists/detail/$id") }) }
+        composable(TopLevelDest.Lists.route) {
+            ListsScreen(
+                onOpenList = { id -> navController.navigate("lists/detail/$id") },
+                onViewHistory = { navController.navigate(Routes.LIST_HISTORY) }
+            )
+        }
         composable(TopLevelDest.Pantry.route) { PantryScreen() }
         composable(TopLevelDest.Profile.route) { ProfileScreen(onChangePassword = { navController.navigate(Routes.CHANGE_PASSWORD) }) }
         composable(Routes.LIST_DETAIL) { backStack ->
             val id = backStack.arguments?.getString("listId")?.toLongOrNull() ?: -1L
             ListDetailScreen(listId = id, onClose = { navController.popBackStack() })
+        }
+        composable(Routes.LIST_HISTORY) {
+            com.example.tuchanguito.ui.screens.lists.ListHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenList = { id -> navController.navigate("lists/detail/$id") }
+            )
         }
         composable(Routes.PRODUCTS) { ProductsScreen() }
         composable(Routes.CATEGORIES) { CategoriesScreen() }

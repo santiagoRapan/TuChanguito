@@ -25,6 +25,7 @@ object Routes {
     const val CHANGE_PASSWORD = "auth/changePassword"
 
     const val LIST_DETAIL = "lists/detail/{listId}"
+    const val LIST_HISTORY = "lists/history"
     const val PRODUCTS = "products"
     const val CATEGORIES = "categories"
 }

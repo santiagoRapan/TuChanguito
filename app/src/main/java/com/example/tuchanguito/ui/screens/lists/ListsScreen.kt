@@ -24,7 +24,10 @@ import com.example.tuchanguito.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ListsScreen(onOpenList: (Long) -> Unit) {
+fun ListsScreen(
+    onOpenList: (Long) -> Unit,
+    onViewHistory: () -> Unit
+) {
     val context = LocalContext.current
     val repo = remember { AppRepository.get(context) }
     val scope = rememberCoroutineScope()
@@ -78,13 +81,28 @@ fun ListsScreen(onOpenList: (Long) -> Unit) {
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { showCreate = true },
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text(stringResource(R.string.create_list))
+                Button(
+                    onClick = { showCreate = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text(stringResource(R.string.create_list))
+                }
+                OutlinedButton(
+                    onClick = onViewHistory,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(id = R.string.view_list_history))
+                }
             }
             Spacer(Modifier.height(16.dp))
 

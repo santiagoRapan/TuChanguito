@@ -23,6 +23,10 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -185,12 +189,7 @@ fun ProductsScreen() {
                             ListItem(
                                 headlineContent = { Text(p.name) },
                                 supportingContent = {
-                                    val raw = p.metadata?.get("price")
-                                    val priceVal = when (raw) {
-                                        is Number -> raw.toDouble()
-                                        is String -> raw.toDoubleOrNull() ?: 0.0
-                                        else -> 0.0
-                                    }
+                                    val priceVal = p.metadata.doubleValue("price")
                                     val priceStr = "%.2f".format(priceVal)
                                     Text(stringResource(id = R.string.price_label) + ": $" + priceStr)
                                 },
@@ -292,10 +291,10 @@ fun ProductsScreen() {
     remoteProducts.firstOrNull { it.id == editingProductId }?.let { prod ->
         var name by rememberSaveable { mutableStateOf(prod.name) }
         var priceText by rememberSaveable {
-            val price = (prod.metadata?.get("price") as? Double) ?: (prod.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
+            val price = prod.metadata.doubleValue("price")
             mutableStateOf(price.toString())
         }
-        var unit by rememberSaveable { mutableStateOf((prod.metadata?.get("unit") as? String).orEmpty()) }
+        var unit by rememberSaveable { mutableStateOf(prod.metadata.stringValue("unit")) }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(prod.category?.id) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
@@ -347,3 +346,9 @@ fun ProductsScreen() {
         )
     }
 }
+
+private fun JsonObject?.doubleValue(key: String, default: Double = 0.0): Double =
+    this?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
+
+private fun JsonObject?.stringValue(key: String): String =
+    this?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -55,6 +56,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -69,11 +71,19 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // DataStore for preferences (settings, remember-me)
     implementation(libs.androidx.datastore.preferences)
-    // Networking
-    implementation(libs.retrofit2)
-    implementation(libs.retrofit2.converter.moshi)
+    // Networking (Kotlin Serialization + Retrofit)
+    implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
-    implementation(libs.moshi.kotlin)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx)
+    implementation(libs.kotlinx.serialization.json)
+
+    // imagenes --> chequear si estamos usando otras...
+//    implementation(libs.coil.compose)
+//    implementation(libs.coil.gif)
+//    implementation(libs.coil.network.okhttp)
+
+
     // Material icons extended for ContentCopy icon
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.accompanist.systemuicontroller)

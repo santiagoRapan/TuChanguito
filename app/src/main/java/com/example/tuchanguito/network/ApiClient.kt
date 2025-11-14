@@ -1,13 +1,13 @@
 package com.example.tuchanguito.network
 
 import com.example.tuchanguito.BuildConfig
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import okhttp3.MediaType.Companion.toMediaType
 
 object ApiClient {
     @Volatile private var retrofit: Retrofit? = null
@@ -26,11 +26,11 @@ object ApiClient {
                 .addInterceptor(authInterceptor)
                 .build()
 
-            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val json = Json { ignoreUnknownKeys = true }
 
             Retrofit.Builder()
                 .baseUrl(baseUrl.trimEnd('/') + "/")
-                .addConverterFactory(MoshiConverterFactory.create(moshi))
+                .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .client(client)
                 .build()
                 .also { retrofit = it }

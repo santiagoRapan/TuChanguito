@@ -22,6 +22,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException // Added for HTTP status inspection
 import androidx.room.withTransaction
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 /**
  * Simple repository coordinating Room DAOs for the app features.
@@ -129,8 +135,8 @@ class AppRepository private constructor(context: Context){
         // Products
         val prodPage = api.catalog.getProducts(page = 1, perPage = 1000)
         prodPage.data.forEach { p ->
-            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val unit = (p.metadata?.get("unit") as? String).orEmpty()
+            val price = p.metadata.doubleValue("price")
+            val unit = p.metadata.stringValue("unit")
             val catId = p.category?.id
             productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unit))
         }
@@ -166,7 +172,7 @@ class AppRepository private constructor(context: Context){
                 ProductRegistrationDTO(
                     name = name,
                     category = finalCatId?.let { IdRef(it) },
-                    metadata = mapOf("price" to price, "unit" to unit)
+                    metadata = metadataJson(price, unit)
                 )
             )
             if (!resp.isSuccessful) {
@@ -177,8 +183,8 @@ class AppRepository private constructor(context: Context){
                 ?: throw IllegalStateException("Producto creado pero no encontrado por nombre")
             val pId = dto.id ?: 0L
             val pCatId = dto.category?.id
-            val pPrice = (dto.metadata?.get("price") as? Number)?.toDouble() ?: price
-            val pUnit = (dto.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
+        val pPrice = dto.metadata.doubleValue("price", price)
+        val pUnit = dto.metadata.stringValue("unit").ifBlank { unit }
             productDao.upsert(Product(id = pId, name = dto.name, price = pPrice, categoryId = pCatId, unit = pUnit))
             syncProducts()
             return pId
@@ -191,8 +197,8 @@ class AppRepository private constructor(context: Context){
             val existing = page?.data?.firstOrNull { it.name.equals(name, ignoreCase = true) }
             if (existing != null) {
                 val exId = existing.id ?: 0L
-                val pPrice = (existing.metadata?.get("price") as? Number)?.toDouble() ?: price
-                val pUnit = (existing.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
+                val pPrice = existing.metadata.doubleValue("price", price)
+                val pUnit = existing.metadata.stringValue("unit").ifBlank { unit }
                 productDao.upsert(Product(id = exId, name = existing.name, price = pPrice, categoryId = existing.category?.id, unit = pUnit))
                 return exId
             }
@@ -207,7 +213,7 @@ class AppRepository private constructor(context: Context){
             ProductRegistrationDTO(
                 name = name,
                 category = categoryId?.let { IdRef(it) },
-                metadata = mapOf("price" to price, "unit" to unit)
+                metadata = metadataJson(price, unit)
             )
         )
         if (!resp.isSuccessful) {
@@ -215,8 +221,8 @@ class AppRepository private constructor(context: Context){
         }
         val server = runCatching { api.catalog.getProduct(id) }.getOrNull()
         val pCatId = server?.category?.id ?: categoryId
-        val pPrice = (server?.metadata?.get("price") as? Number)?.toDouble() ?: price
-        val pUnit = (server?.metadata?.get("unit") as? String).orEmpty().ifBlank { unit }
+        val pPrice = server?.metadata.doubleValue("price", price)
+        val pUnit = server?.metadata.stringValue("unit").ifBlank { unit }
         val pName = server?.name ?: name
         productDao.upsert(Product(id = id, name = pName, price = pPrice, categoryId = pCatId, unit = pUnit))
         syncProducts()
@@ -232,8 +238,8 @@ class AppRepository private constructor(context: Context){
         runCatching { api.catalog.getProducts(page = 1, perPage = 1000) }
             .onSuccess { page ->
                 page.data.forEach { p ->
-                    val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                    val unit = (p.metadata?.get("unit") as? String).orEmpty()
+                    val price = p.metadata.doubleValue("price")
+                    val unit = p.metadata.stringValue("unit")
                     val catId = p.category?.id
                     productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unit))
                 }
@@ -278,7 +284,7 @@ class AppRepository private constructor(context: Context){
                 name = title,
                 description = "",
                 recurring = false,
-                metadata = emptyMap()
+                metadata = buildJsonObject { }
             )
         )
         val created = runCatching { api.shopping.getList(dto.id) }.getOrNull()
@@ -317,15 +323,15 @@ class AppRepository private constructor(context: Context){
         val remoteItems = fetchListItemsEither(listId)
         remoteItems.forEach { li ->
             val p = li.product
-            val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
+            val price = p.metadata.doubleValue("price")
+            val unitFromServer = p.metadata.stringValue("unit")
             val existing = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
             var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
             var finalCatId = p.category?.id ?: existing?.categoryId
             if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
                 runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
                     finalCatId = full.category?.id ?: finalCatId
-                    val u = (full.metadata?.get("unit") as? String).orEmpty()
+                    val u = full.metadata.stringValue("unit")
                     if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
                 }
             }
@@ -354,29 +360,26 @@ class AppRepository private constructor(context: Context){
             val text = resp?.body()?.string()
             if (text.isNullOrBlank()) break
             val batch = try {
-                val moshi = com.squareup.moshi.Moshi.Builder().build()
-                val mapAdapter = moshi.adapter(Map::class.java)
-                val listItemAdapter = moshi.adapter(List::class.java)
-                val itemsAny: List<Any?> = when {
-                    text.trim().startsWith("{") -> {
-                        val asMap = mapAdapter.fromJson(text) as? Map<*, *>
-                        val data = asMap?.get("data")
-                        when (data) { is List<*> -> data as List<Any?>; else -> emptyList() }
+                val raw = text.trim()
+                val jsonArray = when {
+                    raw.startsWith("{") -> {
+                        val obj = org.json.JSONObject(raw)
+                        obj.optJSONArray("data") ?: org.json.JSONArray()
                     }
-                    text.trim().startsWith("[") -> listItemAdapter.fromJson(text) as? List<Any?> ?: emptyList()
-                    else -> emptyList()
+                    raw.startsWith("[") -> org.json.JSONArray(raw)
+                    else -> org.json.JSONArray()
                 }
-                itemsAny.mapNotNull { any ->
-                    val m = any as? Map<*, *> ?: return@mapNotNull null
-                    val id = (m["id"] as? Number)?.toLong() ?: return@mapNotNull null
-                    val product = m["product"]
-                    val productId = when (product) {
-                        is Map<*, *> -> (product["id"] as? Number)?.toLong()
-                        else -> null
+                buildList {
+                    for (i in 0 until jsonArray.length()) {
+                        val item = jsonArray.optJSONObject(i) ?: continue
+                        val id = item.optLong("id", -1L)
+                        if (id <= 0L) continue
+                        val productObj = item.optJSONObject("product")
+                        val productId = productObj?.optLong("id", -1L) ?: -1L
+                        if (productId <= 0L) add(id)
                     }
-                    if (productId == null) id else null
                 }
-            } catch (_: Throwable) { emptyList<Long>() }
+            } catch (_: Throwable) { emptyList() }
             toDelete += batch
             // Heurística de fin: si menos que perPage, probablemente no hay más
             if (batch.size < perPage) break
@@ -401,15 +404,15 @@ class AppRepository private constructor(context: Context){
             val remoteItems = fetchListItemsEither(listId)
             remoteItems.forEach { li ->
                 val p = li.product
-                val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                val unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
+                val price = p.metadata.doubleValue("price")
+                val unitFromServer = p.metadata.stringValue("unit")
                 val existing = runCatching { productDao.getById(p.id ?: 0L) }.getOrNull()
                 var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
                 var finalCatId = p.category?.id ?: existing?.categoryId
                 if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
                     runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
                         finalCatId = full.category?.id ?: finalCatId
-                        val u = (full.metadata?.get("unit") as? String).orEmpty()
+                        val u = full.metadata.stringValue("unit")
                         if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
                     }
                 }
@@ -452,16 +455,16 @@ class AppRepository private constructor(context: Context){
         val updated = api.shopping.updateItem(listId, itemId, com.example.tuchanguito.network.dto.ListItemCreateDTO(product = IdRef(productId), quantity = newQuantity.toDouble(), unit = unit))
         val p = updated.product
         val existing = runCatching { productDao.getById(p.id ?: productId) }.getOrNull()
-        var price = (p.metadata?.get("price") as? Number)?.toDouble() ?: (existing?.price ?: 0.0)
-        var unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
+        var price = p.metadata.doubleValue("price", existing?.price ?: 0.0)
+        var unitFromServer = p.metadata.stringValue("unit")
         var finalUnit = unitFromServer.ifBlank { existing?.unit ?: unit }
         var finalCatId = p.category?.id ?: existing?.categoryId
         if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
             runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
                 finalCatId = full.category?.id ?: finalCatId
-                val u = (full.metadata?.get("unit") as? String).orEmpty()
+                val u = full.metadata.stringValue("unit")
                 if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                val pr = (full.metadata?.get("price") as? Number)?.toDouble()
+                val pr = full.metadata.doubleValue("price", price)
                 if (pr != null) price = pr
             }
         }
@@ -483,16 +486,16 @@ class AppRepository private constructor(context: Context){
         val p = updated.product
         val pId = p.id ?: 0L
         val existing = runCatching { productDao.getById(pId) }.getOrNull()
-        var price = (p.metadata?.get("price") as? Number)?.toDouble() ?: (existing?.price ?: 0.0)
-        var unitFromServer = (p.metadata?.get("unit") as? String).orEmpty()
+        var price = p.metadata.doubleValue("price", existing?.price ?: 0.0)
+        var unitFromServer = p.metadata.stringValue("unit")
         var finalUnit = unitFromServer.ifBlank { existing?.unit ?: "" }
         var finalCatId = p.category?.id ?: existing?.categoryId
         if ((finalCatId == null || finalUnit.isBlank()) && (p.id != null)) {
             runCatching { api.catalog.getProduct(p.id!!) }.onSuccess { full ->
                 finalCatId = full.category?.id ?: finalCatId
-                val u = (full.metadata?.get("unit") as? String).orEmpty()
+                val u = full.metadata.stringValue("unit")
                 if (finalUnit.isBlank() && u.isNotBlank()) finalUnit = u
-                val pr = (full.metadata?.get("price") as? Number)?.toDouble()
+                val pr = full.metadata.doubleValue("price", price)
                 if (pr != null) price = pr
             }
         }
@@ -617,8 +620,8 @@ class AppRepository private constructor(context: Context){
             pantryDao.clearAll()
             items.forEach { it ->
                 val p = it.product
-                val price = (p.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-                val unitMeta = (p.metadata?.get("unit") as? String).orEmpty()
+                val price = p.metadata.doubleValue("price")
+                val unitMeta = p.metadata.stringValue("unit")
                 val catId = p.category?.id
                 p.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
                 productDao.upsert(Product(id = p.id ?: 0L, name = p.name, price = price, categoryId = catId, unit = unitMeta))
@@ -669,7 +672,7 @@ class AppRepository private constructor(context: Context){
         }
         return ids.mapNotNull { id ->
             val cat = categoryById[id] ?: return@mapNotNull null
-            com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = cat.name, metadata = emptyMap())
+            com.example.tuchanguito.network.dto.CategoryDTO(id = id, name = cat.name, metadata = buildJsonObject { })
         }.sortedBy { it.name.lowercase() }
     }
 
@@ -714,8 +717,8 @@ class AppRepository private constructor(context: Context){
                 )
             )
             created.product.category?.let { c -> categoryDao.upsert(Category(id = c.id ?: 0L, name = c.name)) }
-            val pPrice = (created.product.metadata?.get("price") as? Number)?.toDouble() ?: 0.0
-            val pUnit = (created.product.metadata?.get("unit") as? String).orEmpty()
+            val pPrice = created.product.metadata.doubleValue("price")
+            val pUnit = created.product.metadata.stringValue("unit")
             productDao.upsert(Product(id = created.product.id ?: productId, name = created.product.name, price = pPrice, categoryId = created.product.category?.id, unit = pUnit))
             pantryDao.upsert(PantryItem(id = created.id, productId = created.product.id ?: productId, quantity = created.quantity.toInt()))
         } catch (t: Throwable) {
@@ -770,6 +773,18 @@ class AppRepository private constructor(context: Context){
         }
         return distinct.values.toList().sortedBy { it.name.lowercase() }
     }
+
+    private fun JsonObject?.doubleValue(key: String, default: Double = 0.0): Double =
+        this?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
+
+    private fun JsonObject?.stringValue(key: String): String =
+        this?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()
+
+    private fun metadataJson(price: Double, unit: String): JsonObject =
+        buildJsonObject {
+            put("price", price)
+            put("unit", unit)
+        }
 
     companion object {
         @Volatile private var INSTANCE: AppRepository? = null

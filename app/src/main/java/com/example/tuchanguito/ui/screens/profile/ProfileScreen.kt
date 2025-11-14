@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import android.content.res.Configuration
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -37,7 +38,6 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
     val cancelLabel = stringResource(id = R.string.cancel)
     val personalizationLabel = stringResource(id = R.string.personalization)
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
-    val logoutLabel = stringResource(id = R.string.no)
     val profileUpdatedLabel = stringResource(id = R.string.profile_updated)
     val errorSavingLabel = stringResource(id = R.string.error_saving)
     val lightThemeLabel = stringResource(id = R.string.theme_light)
@@ -65,62 +65,84 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text(profileLabel) }) }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
-        Column(
-            Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.displayCutout)
-                .then(scrollMod)
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Profile info
-            Text(userDataLabel, style = MaterialTheme.typography.titleMedium)
-            if (loading) { CircularProgressIndicator() }
-            else {
-                if (!editMode) {
-                    Text("${nameLabel}: ${name}")
-                    Text("${surnameLabel}: ${surname ?: ""}")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { editMode = true }) { Text(editProfileLabel) }
-                        Button(onClick = { onChangePassword() }) { Text(changePasswordLabel) }
-                    }
+
+        // Root box paints the theme background so the area behind display
+        // cutouts/notches uses the exact same background color as the theme.
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.displayCutout)
+                    .then(scrollMod)
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Profile info
+                Text(userDataLabel, style = MaterialTheme.typography.titleMedium)
+
+                if (loading) {
+                    CircularProgressIndicator()
                 } else {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(nameLabel) }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = surname ?: "", onValueChange = { surname = it }, label = { Text(surnameLabel) }, modifier = Modifier.fillMaxWidth())
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
-                            // Save
-                            scope.launch {
-                                loading = true
-                                repo.updateProfile(name.takeIf { it.isNotBlank() }, surname?.takeIf { it.isNotBlank() }).onSuccess {
-                                    snackbarHostState.showSnackbar(profileUpdatedLabel)
-                                    editMode = false
-                                }.onFailure { snackbarHostState.showSnackbar(it.message ?: errorSavingLabel) }
-                                loading = false
-                            }
-                        }) { Text(saveChangesLabel) }
-                        TextButton(onClick = { editMode = false }) { Text(cancelLabel) }
+                    if (!editMode) {
+                        Text("${nameLabel}: ${name}")
+                        Text("${surnameLabel}: ${surname ?: ""}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { editMode = true }) { Text(editProfileLabel) }
+                            Button(onClick = { onChangePassword() }) { Text(changePasswordLabel) }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text(nameLabel) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = surname ?: "",
+                            onValueChange = { surname = it },
+                            label = { Text(surnameLabel) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                // Save
+                                scope.launch {
+                                    loading = true
+                                    repo.updateProfile(name.takeIf { it.isNotBlank() }, surname?.takeIf { it.isNotBlank() })
+                                        .onSuccess {
+                                            snackbarHostState.showSnackbar(profileUpdatedLabel)
+                                            editMode = false
+                                        }
+                                        .onFailure {
+                                            snackbarHostState.showSnackbar(it.message ?: errorSavingLabel)
+                                        }
+                                    loading = false
+                                }
+                            }) { Text(saveChangesLabel) }
+
+                            TextButton(onClick = { editMode = false }) { Text(cancelLabel) }
+                        }
                     }
                 }
+
+                HorizontalDivider()
+
+                Text(personalizationLabel)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(lightThemeLabel)
+                    // Observe the stored theme directly; toggle between light/dark
+                    Switch(checked = theme == "light", onCheckedChange = { checked ->
+                        scope.launch { prefs.setTheme(if (checked) "light" else "dark") }
+                    })
+                }
+
+                // Moneda field removed per request
+                Spacer(Modifier.height(8.dp))
+                val contextText = stringResource(id = R.string.logout_title)
+                Button(onClick = { showLogoutDialog = true }) { Text(contextText) }
             }
-
-            HorizontalDivider()
-
-            Text(personalizationLabel)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(lightThemeLabel)
-                // Observe the stored theme directly; toggle between light/dark
-                Switch(checked = theme == "light", onCheckedChange = { checked ->
-                    scope.launch { prefs.setTheme(if (checked) "light" else "dark") }
-                })
-            }
-
-            // Moneda field removed per request
-            Spacer(Modifier.height(8.dp))
-            val contextText = stringResource(id = R.string.logout_title)
-            Button(onClick = { showLogoutDialog = true }) { Text(contextText) }
         }
     }
 

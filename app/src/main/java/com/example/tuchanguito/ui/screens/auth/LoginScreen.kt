@@ -86,7 +86,7 @@ fun LoginScreen(
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
     Scaffold(
-        containerColor = ScreenBackgroundGrey,
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(
@@ -107,17 +107,17 @@ fun LoginScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Contenedor blanco con sombra leve
+            // Card surface uses theme surface color so it adapts to dark/light
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text(
                         text = signInLabel,
                         style = MaterialTheme.typography.titleMedium,
-                        color = ColorSecondary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(12.dp))
 
@@ -144,13 +144,13 @@ fun LoginScreen(
                     }
                     if (error != null) {
                         Spacer(Modifier.height(8.dp))
-                        Text(text = error!!, color = Color.Red)
+                        Text(text = error!!, color = MaterialTheme.colorScheme.error)
                     }
                     Spacer(Modifier.height(12.dp))
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(containerColor = ColorPrimary, contentColor = Color.White),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         onClick = {
                             error = null
                             isLoading = true
@@ -173,8 +173,8 @@ fun LoginScreen(
                             }
                         }
                     ) {
-                        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
-                        else Text(signInLabel)
+                        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        else Text(signInLabel, color = MaterialTheme.colorScheme.onPrimary)
                     }
                     Spacer(Modifier.height(8.dp))
                     TextButton(
@@ -184,7 +184,7 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = forgotPasswordLabel,
-                            color = ColorPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.Underline),
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
@@ -202,7 +202,7 @@ fun LoginScreen(
                                     append(" " + stringResource(id = R.string.register))
                                 }
                             },
-                            color = ColorPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
@@ -222,7 +222,7 @@ fun LoginScreen(
                     ) {
                         Text(
                             verifyAccountLabel,
-                             color = ColorPrimary,
+                             color = MaterialTheme.colorScheme.primary,
                              modifier = Modifier.fillMaxWidth(),
                              textAlign = TextAlign.Center
                         )
@@ -230,7 +230,7 @@ fun LoginScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(id = R.string.no_account_create),
-                         color = Color.Gray,
+                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                          style = MaterialTheme.typography.bodySmall,
                          textAlign = TextAlign.Center,
                          modifier = Modifier

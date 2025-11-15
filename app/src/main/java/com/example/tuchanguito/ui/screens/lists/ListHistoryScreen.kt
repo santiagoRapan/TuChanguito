@@ -48,7 +48,7 @@ fun ListHistoryScreen(
     val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val viewModel: ListHistoryViewModel = viewModel(
-        factory = ListHistoryViewModelFactory(app.shoppingListsRepository)
+        factory = ListHistoryViewModelFactory(app.shoppingListHistoryRepository)
     )
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -102,7 +102,7 @@ fun ListHistoryScreen(
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
                     items(uiState.items, key = { it.id }) { list ->
-                        HistoryListCard(title = list.name, onOpenList = { onOpenList(list.id) })
+                        HistoryListCard(title = list.title, onOpenList = { onOpenList(list.id) })
                     }
                 }
             }

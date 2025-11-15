@@ -10,6 +10,7 @@ import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.data.repository.CategoryRepository
 import com.example.tuchanguito.data.repository.PantryRepository
 import com.example.tuchanguito.data.repository.ProductRepository
+import com.example.tuchanguito.data.repository.ShoppingListHistoryRepository
 import com.example.tuchanguito.data.repository.ShoppingListsRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -58,7 +59,8 @@ class ListDetailViewModel(
     private val shoppingListsRepository: ShoppingListsRepository,
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository,
-    private val pantryRepository: PantryRepository
+    private val pantryRepository: PantryRepository,
+    private val historyRepository: ShoppingListHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ListDetailUiState())
@@ -272,6 +274,8 @@ class ListDetailViewModel(
                     }
                 }
 
+                val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
+                historyRepository.save(summaryList.id, summaryList.name)
                 shoppingListsRepository.deleteList(listId)
             }
             _uiState.update { it.copy(isProcessing = false) }
@@ -342,7 +346,8 @@ class ListDetailViewModelFactory(
     private val shoppingListsRepository: ShoppingListsRepository,
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository,
-    private val pantryRepository: PantryRepository
+    private val pantryRepository: PantryRepository,
+    private val historyRepository: ShoppingListHistoryRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ListDetailViewModel::class.java)) {
@@ -352,7 +357,8 @@ class ListDetailViewModelFactory(
                 shoppingListsRepository,
                 productRepository,
                 categoryRepository,
-                pantryRepository
+                pantryRepository,
+                historyRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

@@ -62,6 +62,9 @@ interface ShoppingListDao {
     @Query("SELECT * FROM shopping_lists WHERE archived = 0 ORDER BY dateMillis DESC")
     fun observeActive(): Flow<List<ShoppingList>>
 
+    @Query("SELECT * FROM shopping_lists WHERE archived = 1 ORDER BY dateMillis DESC")
+    fun observeArchived(): Flow<List<ShoppingList>>
+
     @Query("SELECT * FROM shopping_lists WHERE id = :id")
     fun observeById(id: Long): Flow<ShoppingList?>
 }

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 
@@ -66,10 +67,10 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
             title = { Text(verifyAccountLabel, color = androidx.compose.ui.graphics.Color.White) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
             colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                titleContentColor = androidx.compose.ui.graphics.Color.White,
-                navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
-                actionIconContentColor = androidx.compose.ui.graphics.Color.White
+                containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
+                titleContentColor = Color.White,
+                navigationIconContentColor = Color.White,
+                actionIconContentColor = Color.White
             )
         )
     }, contentWindowInsets = WindowInsets.systemBars) { padding ->

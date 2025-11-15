@@ -18,6 +18,8 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
+import com.example.tuchanguito.ui.theme.ButtonBlue
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.launch
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -92,7 +94,7 @@ fun ProductsScreen() {
                 title = { Text(productsTitle, color = Color.White) },
                 windowInsets = TopAppBarDefaults.windowInsets,
                 colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White

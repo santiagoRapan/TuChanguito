@@ -9,7 +9,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
@@ -53,11 +52,13 @@ fun TuChanguitoTheme(
     }
 
     val systemUiController = rememberSystemUiController()
-    val bg = colorScheme.background
-    val darkIcons = bg.luminance() > 0.5f
+    val systemBarColor = ColorPrimary
     SideEffect {
-        systemUiController.setStatusBarColor(color = bg, darkIcons = darkIcons)
-        systemUiController.setNavigationBarColor(color = bg, darkIcons = darkIcons, navigationBarContrastEnforced = false)
+        // En tema claro queremos iconos oscuros (negros) en la status bar; en oscuro, iconos claros
+        val darkIconsForStatusBar = !darkTheme
+        systemUiController.setStatusBarColor(color = systemBarColor, darkIcons = darkIconsForStatusBar)
+        // La navigation bar se mantiene con iconos claros para mejor contraste sobre el azul
+        systemUiController.setNavigationBarColor(color = systemBarColor, darkIcons = false, navigationBarContrastEnforced = false)
     }
 
     MaterialTheme(

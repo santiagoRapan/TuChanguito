@@ -4,11 +4,13 @@ import android.app.Application
 import com.example.tuchanguito.data.PreferencesManager
 import com.example.tuchanguito.data.db.AppDatabase
 import com.example.tuchanguito.data.network.CategoryRemoteDataSource
+import com.example.tuchanguito.data.network.AuthRemoteDataSource
 import com.example.tuchanguito.data.network.PantryRemoteDataSource
 import com.example.tuchanguito.data.network.ProductRemoteDataSource
 import com.example.tuchanguito.data.network.ShoppingListsRemoteDataSource
 import com.example.tuchanguito.data.network.api.RetrofitClient
 import com.example.tuchanguito.data.repository.CategoryRepository
+import com.example.tuchanguito.data.repository.AuthRepository
 import com.example.tuchanguito.data.repository.PantryRepository
 import com.example.tuchanguito.data.repository.ProductRepository
 import com.example.tuchanguito.data.repository.ShoppingListHistoryRepository
@@ -58,5 +60,12 @@ class MyApplication : Application() {
 
     val shoppingListHistoryRepository: ShoppingListHistoryRepository by lazy {
         ShoppingListHistoryRepository(database.shoppingListDao())
+    }
+
+    val authRepository: AuthRepository by lazy {
+        AuthRepository(
+            AuthRemoteDataSource(RetrofitClient.getAuthApiService()),
+            preferences
+        )
     }
 }

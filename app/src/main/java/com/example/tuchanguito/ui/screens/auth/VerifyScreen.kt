@@ -7,9 +7,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.PreferencesManager
+import com.example.tuchanguito.ui.screens.auth.AuthViewModel
+import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -22,7 +23,10 @@ import androidx.compose.foundation.layout.systemBars
 @Composable
 fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
     val scope = rememberCoroutineScope()
 
     val verifyAccountLabel = stringResource(id = R.string.verify_account)
@@ -40,9 +44,9 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    val prefs = PreferencesManager(context)
-    val pendingEmail by prefs.pendingEmail.collectAsState(initial = null)
-    val pendingPassword by prefs.pendingPassword.collectAsState(initial = null)
+    val pendingEmail by authViewModel.pendingEmail.collectAsState()
+    val pendingPassword by authViewModel.pendingPassword.collectAsState()
+    val rememberMe by authViewModel.rememberMe.collectAsState()
 
     // Reactive email state: update when pendingEmail appears
     var email by remember { mutableStateOf(pendingEmail ?: "") }
@@ -74,15 +78,15 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                 isLoading = true
                 scope.launch {
                     try {
-                        val verifyResult = repo.verifyAccount("", code.trim())
+                        val verifyResult = authViewModel.verify(code.trim())
                         if (verifyResult.isSuccess) {
                             if (!pendingEmail.isNullOrEmpty() && !pendingPassword.isNullOrEmpty()) {
                                 val e = pendingEmail
                                 val p = pendingPassword
                                 if (!e.isNullOrEmpty() && !p.isNullOrEmpty()) {
-                                    val loginResult = repo.login(e, p)
+                                    val loginResult = authViewModel.login(e, p, rememberMe)
                                     if (loginResult.isSuccess) {
-                                        prefs.clearPendingCredentials()
+                                        authViewModel.clearPendingCredentials()
                                         onVerified() // Go to Home (token set)
                                     } else {
                                         val msg = loginResult.exceptionOrNull()?.message ?: verifyErrorLabel
@@ -118,7 +122,7 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                         if (!isEmailValid) {
                             resendMessage = enterValidEmailLabel
                         } else {
-                            runCatching { repo.resendVerificationCode(targetEmail) }
+                            runCatching { authViewModel.resendVerification(targetEmail) }
                                 .onSuccess { resendMessage = String.format(codeResentFmt, targetEmail) }
                                 .onFailure { resendMessage = it.message ?: resendErrorLabel }
                         }

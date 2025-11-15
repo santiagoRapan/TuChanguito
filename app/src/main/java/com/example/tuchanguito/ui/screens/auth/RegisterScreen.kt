@@ -12,15 +12,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.PreferencesManager
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.ui.screens.auth.AuthViewModel
+import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(onRegistered: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
@@ -81,9 +85,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                 isLoading = true
                 scope.launch {
                     try {
-                        repo.register(email.trim(), password, name).onSuccess {
-                            val prefs = PreferencesManager(context)
-                            prefs.setPendingCredentials(email.trim(), password)
+                        authViewModel.register(email.trim(), password, name).onSuccess {
                             onRegistered()
                         }.onFailure {
                             val msg = it.message ?: genericErrorLabel

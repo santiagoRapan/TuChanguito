@@ -4,8 +4,6 @@ import android.content.Context
 import com.example.tuchanguito.data.db.AppDatabase
 import com.example.tuchanguito.data.model.*
 import com.example.tuchanguito.network.ApiModule
-import com.example.tuchanguito.network.dto.CredentialsDTO
-import com.example.tuchanguito.network.dto.RegistrationDataDTO
 import com.example.tuchanguito.network.dto.CategoryDTO
 import com.example.tuchanguito.network.dto.ProductDTO
 import com.example.tuchanguito.network.dto.ProductRegistrationDTO
@@ -55,65 +53,6 @@ class AppRepository private constructor(context: Context){
 
     // Mutex for serializing pantry ID resolution/creation
     private val ensurePantryIdMutex = Mutex()
-
-    // Auth (local)
-    suspend fun register(email: String, password: String, displayName: String): Result<Unit> = try {
-        // Remote first (adjust names/surnames as needed)
-        val names = displayName.split(" ")
-        val name = names.firstOrNull() ?: displayName
-        val surname = names.drop(1).joinToString(" ")
-        api.auth.register(RegistrationDataDTO(email = email, name = name, surname = surname, password = password))
-        Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
-
-    suspend fun verifyAccount(email: String, code: String): Result<Unit> = try {
-        api.auth.verify(com.example.tuchanguito.network.dto.VerificationCodeDTO(code))
-        Result.success(Unit)
-    } catch (t: Throwable) {
-        val friendly = when (t) {
-            is retrofit2.HttpException -> when (t.code()) {
-                400 -> "Código inválido"
-                else -> "Error al verificar (HTTP ${t.code()})"
-            }
-            else -> "Error al verificar"
-        }
-        Result.failure(IllegalStateException(friendly, t))
-    }
-
-    suspend fun login(email: String, password: String): Result<Unit> = try {
-        val token = api.auth.login(CredentialsDTO(email, password)).token
-        prefs.setAuthToken(token)
-        Result.success(Unit)
-    } catch (t: Throwable) {
-        // Map 401 Unauthorized to a friendly message for unregistered accounts or bad credentials
-        val friendlyMessage = when (t) {
-            is HttpException -> when (t.code()) {
-                401 -> "Cuenta no registrada"
-                else -> "Error de inicio de sesión (HTTP ${t.code()})"
-            }
-            else -> "Error de inicio de sesión"
-        }
-        Result.failure(IllegalStateException(friendlyMessage, t))
-    }
-
-    suspend fun changePassword(old: String, new: String): Result<Unit> = try {
-        api.auth.changePassword(com.example.tuchanguito.network.dto.PasswordChangeDTO(currentPassword = old, newPassword = new))
-        Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
-
-    // Profile
-    suspend fun getProfile(): Result<com.example.tuchanguito.network.dto.UserDTO> = try {
-        val user = api.auth.getProfile()
-        // store current user id
-        prefs.setCurrentUserId(user.id)
-        Result.success(user)
-    } catch (t: Throwable) { Result.failure(t) }
-
-    suspend fun updateProfile(name: String?, surname: String?): Result<com.example.tuchanguito.network.dto.UserDTO> = try {
-        val updated = api.auth.updateProfile(com.example.tuchanguito.network.dto.UserUpdateDTO(name = name, surname = surname))
-        prefs.setCurrentUserId(updated.id)
-        Result.success(updated)
-    } catch (t: Throwable) { Result.failure(t) }
 
     // Products
     fun categories(): Flow<List<Category>> = categoryDao.observeAll()
@@ -676,18 +615,9 @@ class AppRepository private constructor(context: Context){
         }.sortedBy { it.name.lowercase() }
     }
 
-    suspend fun resendVerificationCode(email: String): Result<Unit> = try {
-        api.auth.sendVerification(email)
-        Result.success(Unit)
-    } catch (t: Throwable) {
-        Result.failure(t)
-    }
 
     // Validate credentials without persisting token (used to confirm current password)
-    suspend fun validateCredentials(email: String, password: String): Result<Unit> = try {
-        api.auth.login(CredentialsDTO(email, password))
-        Result.success(Unit)
-    } catch (t: Throwable) { Result.failure(t) }
+
 
     // Share a shopping list with another user by email
     suspend fun shareListRemote(listId: Long, email: String) {
@@ -793,3 +723,4 @@ class AppRepository private constructor(context: Context){
         }
     }
 }
+

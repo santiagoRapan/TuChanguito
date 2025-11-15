@@ -9,8 +9,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.PreferencesManager
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.ui.screens.auth.AuthViewModel
+import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import kotlinx.coroutines.launch
 import android.content.res.Configuration
 import androidx.compose.foundation.rememberScrollState
@@ -23,9 +24,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(onChangePassword: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember { PreferencesManager(context) }
-    val repo = remember { AppRepository.get(context) }
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as MyApplication
+    val prefs = remember { app.preferences }
+    val authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
     val scope = rememberCoroutineScope()
 
     val profileLabel = stringResource(id = R.string.profile)
@@ -55,10 +58,14 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
 
     LaunchedEffect(Unit) {
         loading = true
-        repo.getProfile().onSuccess { user ->
-            name = user.name
-            surname = user.surname
-        }.onFailure { snackbarHostState.showSnackbar(it.message ?: loadingUserErrorLabel) }
+        authViewModel.getProfile()
+            .onSuccess { user ->
+                name = user.name.orEmpty()
+                surname = user.surname
+            }
+            .onFailure {
+                snackbarHostState.showSnackbar(it.message ?: loadingUserErrorLabel)
+            }
         loading = false
     }
 
@@ -110,8 +117,13 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
                                 // Save
                                 scope.launch {
                                     loading = true
-                                    repo.updateProfile(name.takeIf { it.isNotBlank() }, surname?.takeIf { it.isNotBlank() })
-                                        .onSuccess {
+                                    authViewModel.updateProfile(
+                                        name.takeIf { it.isNotBlank() },
+                                        surname?.takeIf { it.isNotBlank() }
+                                    )
+                                        .onSuccess { updated ->
+                                            name = updated.name.orEmpty()
+                                            surname = updated.surname
                                             snackbarHostState.showSnackbar(profileUpdatedLabel)
                                             editMode = false
                                         }

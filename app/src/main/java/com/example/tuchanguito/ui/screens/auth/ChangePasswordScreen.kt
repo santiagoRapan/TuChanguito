@@ -8,7 +8,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.ui.screens.auth.AuthViewModel
+import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -20,8 +22,10 @@ import androidx.compose.foundation.layout.systemBars
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as MyApplication
+    val authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
     val scope = rememberCoroutineScope()
 
     val modifyPasswordLabel = stringResource(id = R.string.modify_password)
@@ -64,7 +68,7 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                         loading = true
                         error = null
                         // get email from profile
-                        val profileRes = repo.getProfile()
+                        val profileRes = authViewModel.getProfile()
                         if (profileRes.isFailure) {
                             error = profileRes.exceptionOrNull()?.message ?: genericErrorLabel
                             loading = false
@@ -77,7 +81,7 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                             return@launch
                         }
                         // Validate credentials without persisting token
-                        val valid = repo.validateCredentials(email, current)
+                        val valid = authViewModel.validateCredentials(email, current)
                         if (valid.isSuccess) {
                             step = 2
                         } else {
@@ -100,7 +104,7 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                         if (new1.isBlank() || new2.isBlank()) { error = completeBothFieldsLabel; return@launch }
                         if (new1 != new2) { error = passwordsDoNotMatchLabel; return@launch }
                         loading = true
-                        val changeRes = repo.changePassword(current, new1)
+                        val changeRes = authViewModel.changePassword(current, new1)
                         if (changeRes.isSuccess) {
                             onDone()
                         } else {

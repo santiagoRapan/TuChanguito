@@ -30,8 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.PreferencesManager
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.ui.screens.auth.AuthViewModel
+import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
 import com.example.tuchanguito.ui.theme.ButtonBlue
 import com.example.tuchanguito.ui.theme.ColorPrimary
@@ -57,8 +58,11 @@ fun LoginScreen(
     onVerifyAccount: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
-    val prefs = remember { PreferencesManager(context) }
+    val app = context.applicationContext as MyApplication
+    val authViewModel: AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
+    val rememberMe by authViewModel.rememberMe.collectAsState()
     val scope = rememberCoroutineScope()
 
     val appName = stringResource(id = R.string.app_name)
@@ -78,10 +82,6 @@ fun LoginScreen(
     var remember by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        prefs.rememberMe.collect { remember = it }
-    }
 
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
@@ -139,7 +139,13 @@ fun LoginScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = remember, onCheckedChange = { remember = it }, enabled = !isLoading)
+                        Checkbox(
+                            checked = rememberMe,
+                            onCheckedChange = { checked ->
+                                scope.launch { authViewModel.setRememberMe(checked) }
+                            },
+                            enabled = !isLoading
+                        )
                         Text(rememberMeLabel)
                     }
                     if (error != null) {
@@ -156,9 +162,8 @@ fun LoginScreen(
                             isLoading = true
                             scope.launch {
                                 try {
-                                    val result = repo.login(email.trim(), password)
+                                    val result = authViewModel.login(email.trim(), password, rememberMe)
                                     if (result.isSuccess) {
-                                        prefs.setRememberMe(remember)
                                         onLoginSuccess()
                                     } else {
                                         val msg = result.exceptionOrNull()?.message ?: loginErrorDefault
@@ -212,7 +217,7 @@ fun LoginScreen(
                             scope.launch {
                                 val e = email.trim()
                                 if (e.isNotEmpty()) {
-                                    prefs.setPendingCredentials(e, password)
+                                    authViewModel.storePendingCredentials(e, password)
                                 }
                                 onVerifyAccount()
                             }

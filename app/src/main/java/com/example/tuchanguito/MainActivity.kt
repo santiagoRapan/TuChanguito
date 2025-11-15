@@ -38,7 +38,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.data.AppRepository
+import com.example.tuchanguito.MyApplication
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -85,7 +85,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TuChanguitoApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val catalogRepository = remember { app.catalogRepository }
     val scope = rememberCoroutineScope()
     val prefs = remember { PreferencesManager(context) }
     val authToken by prefs.authToken.collectAsState(initial = null)
@@ -116,7 +117,7 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
     LaunchedEffect(authToken) {
         if (!authToken.isNullOrEmpty()) {
             scope.launch {
-                repo.ensureDefaultCategories()
+                catalogRepository.ensureDefaultCategories()
             }
         }
     }

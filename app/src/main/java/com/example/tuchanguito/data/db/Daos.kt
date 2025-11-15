@@ -67,6 +67,12 @@ interface ShoppingListDao {
 
     @Query("SELECT * FROM shopping_lists WHERE id = :id")
     fun observeById(id: Long): Flow<ShoppingList?>
+
+    @Query("DELETE FROM shopping_lists WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM shopping_lists WHERE archived = 0")
+    suspend fun clearActive()
 }
 
 @Dao

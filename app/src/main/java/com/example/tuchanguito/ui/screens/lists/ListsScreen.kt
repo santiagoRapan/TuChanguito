@@ -12,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.data.AppRepository
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.model.ShoppingList
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,12 +29,14 @@ fun ListsScreen(
     onViewHistory: () -> Unit
 ) {
     val context = LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val catalogRepository = remember { app.catalogRepository }
+    val listsRepository = remember { app.shoppingListsLocalRepository }
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
 
     // State
-    val lists by repo.activeLists().collectAsState(initial = emptyList())
+    val lists by listsRepository.observeLists().collectAsState(initial = emptyList())
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var newName by rememberSaveable { mutableStateOf("") }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -52,9 +54,9 @@ fun ListsScreen(
         busy = true
         // Ensure default categories exist and refresh lists from remote
         scope.launch {
-            repo.ensureDefaultCategories()
+            catalogRepository.ensureDefaultCategories()
         }
-        val res = repo.refreshLists()
+        val res = listsRepository.refreshLists()
         if (res.isFailure) {
             snackbarHost.showSnackbar(res.exceptionOrNull()?.message ?: loadingUserErrorLabel)
         }
@@ -128,7 +130,7 @@ fun ListsScreen(
                                 scope.launch {
                                     busy = true
                                     try {
-                                        repo.deleteListRemote(list.id)
+                                        listsRepository.deleteList(list.id)
                                     } catch (t: Throwable) {
                                         snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
                                     } finally {
@@ -155,7 +157,7 @@ fun ListsScreen(
                 scope.launch {
                     busy = true
                     try {
-                        val id = repo.createList(newName.trim())
+                        val id = listsRepository.createList(newName.trim())
                         if (id > 0) {
                             showCreate = false
                             newName = ""
@@ -185,7 +187,7 @@ fun ListsScreen(
                 scope.launch {
                     busy = true
                     try {
-                        repo.renameList(id, editName.trim())
+                        listsRepository.renameList(id, editName.trim())
                     } catch (t: Throwable) {
                         snackbarHost.showSnackbar(t.message ?: renameErrorLabel)
                     } finally {

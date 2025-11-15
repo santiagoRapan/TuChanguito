@@ -15,7 +15,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import android.content.res.Configuration
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.data.network.model.CategoryDto
+import com.example.tuchanguito.data.network.model.ProductDto
 import kotlinx.coroutines.launch
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -23,8 +25,9 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
@@ -32,7 +35,8 @@ import kotlinx.serialization.json.contentOrNull
 @Composable
 fun ProductsScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val catalogRepository = remember { app.catalogRepository }
     val scope = rememberCoroutineScope()
 
     val snack = remember { SnackbarHostState() }
@@ -55,18 +59,18 @@ fun ProductsScreen() {
     var editingProductId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Server-driven state
-    var remoteCategories by remember { mutableStateOf(listOf<com.example.tuchanguito.network.dto.CategoryDTO>()) }
-    var remoteProducts by remember { mutableStateOf(listOf<com.example.tuchanguito.network.dto.ProductDTO>()) }
+    var remoteCategories by remember { mutableStateOf(listOf<CategoryDto>()) }
+    var remoteProducts by remember { mutableStateOf(listOf<ProductDto>()) }
 
     // Initial catalog sync clears local ghosts but UI below uses server lists directly
     LaunchedEffect(Unit) {
-        val res = repo.syncCatalog()
+        val res = catalogRepository.syncCatalog()
         if (res.isFailure) snack.showSnackbar(res.exceptionOrNull()?.message ?: createErrorLabel)
     }
 
     // Reload server categories whenever query changes (chips should only show categories with products)
     LaunchedEffect(query) {
-        runCatching { repo.categoriesForQuery(query) }
+        runCatching { catalogRepository.categoriesForQuery(query) }
             .onSuccess { cats ->
                 remoteCategories = cats
                 // If selected category disappeared for this query, reset selection
@@ -77,7 +81,7 @@ fun ProductsScreen() {
 
     // Reload products whenever query/category changes
     LaunchedEffect(query, selectedCategoryId) {
-        runCatching { repo.searchProductsDTO(name = query, categoryId = selectedCategoryId) }
+        runCatching { catalogRepository.searchProducts(name = query, categoryId = selectedCategoryId) }
             .onSuccess { list -> remoteProducts = list }
             .onFailure { snack.showSnackbar(it.message ?: "Error cargando productos") }
     }
@@ -151,7 +155,7 @@ fun ProductsScreen() {
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
                                     scope.launch {
                                         val id = p.id ?: return@launch
-                                        val res = runCatching { repo.deleteProductRemote(id) }
+                                        val res = runCatching { catalogRepository.deleteProduct(id) }
                                         if (res.isFailure) {
                                             snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
                                         } else {
@@ -205,7 +209,7 @@ fun ProductsScreen() {
                                         IconButton(onClick = {
                                             scope.launch {
                                                 val id = p.id ?: return@launch
-                                                val res = runCatching { repo.deleteProductRemote(id) }
+                                                val res = runCatching { catalogRepository.deleteProduct(id) }
                                                 if (res.isFailure) {
                                                     snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
                                                 } else {
@@ -246,12 +250,12 @@ fun ProductsScreen() {
                     scope.launch {
                         busy = true
                         try {
-                            val finalCategoryId = categoryId ?: repo.createOrFindCategoryByName(categoryInput)
-                            repo.createProductRemote(name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
+                            val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
+                            catalogRepository.createProduct(name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
                             showCreate = false
                             // Refresh lists to reflect new product
-                            remoteProducts = repo.searchProductsDTO(query, selectedCategoryId)
-                            remoteCategories = repo.categoriesForQuery(query)
+                            remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
+                            remoteCategories = catalogRepository.categoriesForQuery(query)
                         } catch (t: Throwable) {
                             // Surface the message instead of crashing the app
                             snack.showSnackbar(t.message ?: createErrorLabel)
@@ -307,12 +311,12 @@ fun ProductsScreen() {
                     scope.launch {
                         busy = true
                         try {
-                            val finalCategoryId = categoryId ?: repo.createOrFindCategoryByName(categoryInput)
-                            repo.updateProductRemote(prod.id ?: return@launch, name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
+                            val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
+                            catalogRepository.updateProduct(prod.id, name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
                             editingProductId = null
                             // Refresh products after edit
-                            remoteProducts = repo.searchProductsDTO(query, selectedCategoryId)
-                            remoteCategories = repo.categoriesForQuery(query)
+                            remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
+                            remoteCategories = catalogRepository.categoriesForQuery(query)
                         } catch (t: Throwable) {
                             snack.showSnackbar(t.message ?: createErrorLabel)
                         } finally { busy = false }
@@ -347,8 +351,8 @@ fun ProductsScreen() {
     }
 }
 
-private fun JsonObject?.doubleValue(key: String, default: Double = 0.0): Double =
-    this?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
+private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double =
+    this?.jsonObject?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
 
-private fun JsonObject?.stringValue(key: String): String =
-    this?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()
+private fun JsonElement?.stringValue(key: String): String =
+    this?.jsonObject?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()

@@ -1,4 +1,4 @@
-﻿<resources>
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="app_name">TuChanguito</string>
     <string name="login">Sign in</string>
     <string name="register">Register</string>
@@ -177,7 +177,7 @@
 
     <!-- Strings for ListsScreen -->
     <string name="my_lists">My Lists</string>
-    <string name="no_lists_found">No lists found.</string>
+    <string name="no_lists_found">No tienes listas creadas. Presiona el + para crear una.</string>
     <string name="rename_list_dialog_title">Rename List</string>
     <string name="rename_list_content_description">Rename list</string>
     <string name="delete_list_content_description">Delete list</string>

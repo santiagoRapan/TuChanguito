@@ -126,7 +126,6 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 ItemAdded -> {
                     addDialogBusy = false
                     showAddProductDialog = false
-                    snackbarHost.showSnackbar("Producto agregado")
                 }
                 ListFinalized -> {
                     showFinalizeDialog = false

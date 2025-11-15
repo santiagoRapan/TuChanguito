@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="app_name">TuChanguito</string>
     <string name="login">Sign in</string>
     <string name="register">Register</string>
@@ -119,4 +119,7 @@
     <string name="low_stock">Low stock</string>
     <string name="pending_label">%d pending</string>
     <string name="default_active_list_title">Supermarket - Today</string>
+    <!-- Strings for ListsScreen (friendly messages) -->
+    <string name="my_lists">My Lists</string>
+    <string name="no_lists_found">You have no lists yet. Tap the + button to create one.</string>
 </resources>

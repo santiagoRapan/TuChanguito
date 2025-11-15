@@ -1,26 +1,32 @@
 package com.example.tuchanguito.ui.screens.lists
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.model.ShoppingList
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import com.example.tuchanguito.R
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,13 +47,12 @@ fun ListsScreen(
     val recurringLists = remember(lists) { lists.filter { it.recurring } }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var newName by rememberSaveable { mutableStateOf("") }
-    var editId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val editIdState = rememberSaveable { mutableStateOf<Long?>(null) }
     var editName by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var togglingId by remember { mutableStateOf<Long?>(null) }
 
     // Strings from resources
-    val listAlreadyExists = stringResource(id = R.string.list_already_exists)
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
     val deleteErrorLabel = stringResource(id = R.string.delete_error)
     val createErrorLabel = stringResource(id = R.string.create_error)
@@ -78,6 +83,17 @@ fun ListsScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHost) },
+        floatingActionButton = {
+            // Circular button styled like the add button in ListDetailScreen
+            Button(
+                onClick = { showCreate = true },
+                shape = CircleShape,
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.create_list))
+            }
+        },
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(
@@ -91,18 +107,7 @@ fun ListsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Button(
-                    onClick = { showCreate = true },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize)
-                    )
-                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text(stringResource(R.string.create_list))
-                }
+                Spacer(modifier = Modifier.weight(1f))
                 OutlinedButton(
                     onClick = onViewHistory,
                     modifier = Modifier.weight(1f)
@@ -118,12 +123,27 @@ fun ListsScreen(
                 }
             } else if (lists.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.no_lists_found))
+                    // Transparent box with thin black border and rounded corners
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .border(BorderStroke(1.dp, Color.Black), shape = RoundedCornerShape(8.dp))
+                            .background(Color.Transparent, shape = RoundedCornerShape(8.dp))
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.no_lists_found),
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(4.dp)
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     if (regularLists.isNotEmpty()) {
                         item {
@@ -138,7 +158,7 @@ fun ListsScreen(
                             ShoppingListCard(
                                 list = list,
                                 onOpen = { onOpenList(list.id) },
-                                onRename = { editId = list.id; editName = list.title },
+                                onRename = { editIdState.value = list.id; editName = list.title },
                                 onDelete = {
                                     scope.launch {
                                         busy = true
@@ -177,7 +197,7 @@ fun ListsScreen(
                             ShoppingListCard(
                                 list = list,
                                 onOpen = { onOpenList(list.id) },
-                                onRename = { editId = list.id; editName = list.title },
+                                onRename = { editIdState.value = list.id; editName = list.title },
                                 onDelete = {
                                     scope.launch {
                                         busy = true
@@ -237,8 +257,8 @@ fun ListsScreen(
         )
     }
 
-    if (editId != null) {
-        val id = editId!!
+    if (editIdState.value != null) {
+        val id = editIdState.value!!
         CreateOrRenameDialog(
             title = stringResource(R.string.rename_list_dialog_title),
             confirmButtonText = stringResource(R.string.save_changes),
@@ -254,12 +274,12 @@ fun ListsScreen(
                         snackbarHost.showSnackbar(t.message ?: renameErrorLabel)
                     } finally {
                         busy = false
-                        editId = null
+                        editIdState.value = null
                         editName = ""
                     }
                 }
             },
-            onDismiss = { editId = null; editName = "" },
+            onDismiss = { editIdState.value = null; editName = "" },
             busy = busy
         )
     }

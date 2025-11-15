@@ -1,6 +1,7 @@
 package com.example.tuchanguito.ui.screens.products
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
@@ -95,7 +96,13 @@ fun ProductsScreen() {
         },
         snackbarHost = { SnackbarHost(snack) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreate = true }) {
+            // Circular button styled like ListsScreen add button
+            Button(
+                onClick = { showCreate = true },
+                shape = CircleShape,
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = newProductDesc)
             }
         },

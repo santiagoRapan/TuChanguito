@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,7 +19,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -49,6 +49,7 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.CircleShape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +71,13 @@ fun PantryScreen() {
         topBar = { TopAppBar(title = { Text(stringResource(id = R.string.pantry)) }) },
         snackbarHost = { SnackbarHost(snackbarHost) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            // Circular button consistent with ListsScreen style
+            Button(
+                onClick = { showAddDialog = true },
+                shape = CircleShape,
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_product_to_list))
             }
         }

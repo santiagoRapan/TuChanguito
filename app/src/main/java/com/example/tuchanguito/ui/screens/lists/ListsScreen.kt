@@ -52,6 +52,7 @@ fun ListsScreen(
     var editName by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var togglingId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteList by remember { mutableStateOf<ShoppingList?>(null) }
 
     // Strings from resources
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
@@ -161,18 +162,7 @@ fun ListsScreen(
                                 list = list,
                                 onOpen = { onOpenList(list.id) },
                                 onRename = { editIdState.value = list.id; editName = list.title },
-                                onDelete = {
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            listsRepository.deleteList(list.id)
-                                        } catch (t: Throwable) {
-                                            snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
-                                },
+                                onDelete = { pendingDeleteList = list },
                                 onToggleRecurring = { checked ->
                                     scope.launch {
                                         togglingId = list.id
@@ -200,18 +190,7 @@ fun ListsScreen(
                                 list = list,
                                 onOpen = { onOpenList(list.id) },
                                 onRename = { editIdState.value = list.id; editName = list.title },
-                                onDelete = {
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            listsRepository.deleteList(list.id)
-                                        } catch (t: Throwable) {
-                                            snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
-                                },
+                                onDelete = { pendingDeleteList = list },
                                 onToggleRecurring = { checked ->
                                     scope.launch {
                                         togglingId = list.id
@@ -283,6 +262,37 @@ fun ListsScreen(
             },
             onDismiss = { editIdState.value = null; editName = "" },
             busy = busy
+        )
+    }
+
+    if (pendingDeleteList != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteList = null },
+            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
+            text = { Text(stringResource(id = R.string.confirm_delete_list_message, pendingDeleteList!!.title)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val list = pendingDeleteList ?: return@TextButton
+                        pendingDeleteList = null
+                        scope.launch {
+                            busy = true
+                            try {
+                                listsRepository.deleteList(list.id)
+                            } catch (t: Throwable) {
+                                snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text(stringResource(id = R.string.delete_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteList = null }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            }
         )
     }
 }

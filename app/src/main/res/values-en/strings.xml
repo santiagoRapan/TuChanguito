@@ -197,4 +197,12 @@
     <string name="decrement_desc">Decrease</string>
     <string name="increment_desc">Increase</string>
     <string name="delete_desc">Delete</string>
+
+    <!-- Delete confirmations -->
+    <string name="confirm_delete_title">Confirm deletion</string>
+    <string name="confirm_delete_pantry_item_message">Do you want to remove this product from the pantry?</string>
+    <string name="confirm_delete_product_message">Do you want to delete this product?</string>
+    <string name="confirm_delete_item_message">Do you want to remove this product from the list?</string>
+    <string name="confirm_delete_list_message">Do you want to delete the list "%1$s"?</string>
+    <string name="delete_action">Delete</string>
 </resources>

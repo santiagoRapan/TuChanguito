@@ -35,6 +35,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,6 +60,7 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.ui.theme.ColorPrimary
+import com.example.tuchanguito.ui.theme.ColorSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +73,7 @@ fun PantryScreen() {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var itemToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { snackbarHost.showSnackbar(it) }
@@ -157,7 +162,7 @@ fun PantryScreen() {
                                 unit = item.unit ?: "",
                                 onInc = { viewModel.incrementItem(item.id, item.quantity, item.unit) },
                                 onDec = { viewModel.decrementItem(item.id, item.quantity, item.unit) },
-                                onDelete = { viewModel.deleteItem(item.id) }
+                                onRequestDelete = { itemToDeleteId = item.id }
                             )
                         }
                     }
@@ -174,6 +179,24 @@ fun PantryScreen() {
             onAdd = { productId, name, price, unit, categoryName ->
                 viewModel.addItem(productId, name.orEmpty(), price, unit, categoryName.orEmpty())
                 showAddDialog = false
+            }
+        )
+    }
+
+    if (itemToDeleteId != null) {
+        AlertDialog(
+            onDismissRequest = { itemToDeleteId = null },
+            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
+            text = { Text(stringResource(id = R.string.confirm_delete_pantry_item_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = itemToDeleteId ?: return@TextButton
+                    itemToDeleteId = null
+                    viewModel.deleteItem(id)
+                }) { Text(stringResource(id = R.string.delete_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDeleteId = null }) { Text(stringResource(id = R.string.cancel)) }
             }
         )
     }
@@ -272,42 +295,80 @@ private fun PantryItemRow(
     quantity: Double,
     onInc: () -> Unit,
     onDec: () -> Unit,
-    onDelete: () -> Unit
+    onRequestDelete: () -> Unit
 ) {
     val formattedQuantity = remember(quantity) {
         if (quantity % 1.0 == 0.0) quantity.toInt().toString() else "%.2f".format(quantity)
     }
+    val quantityWithUnit = remember(formattedQuantity, unit) {
+        val trimmedUnit = unit.trim()
+        if (trimmedUnit.isEmpty()) formattedQuantity else "$formattedQuantity $trimmedUnit"
+    }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    fontWeight = FontWeight.Bold
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { target ->
+            if (target == SwipeToDismissBoxValue.EndToStart) {
+                onRequestDelete()
+                false
+            } else false
+        }
+    )
+    val isDark = MaterialTheme.colorScheme.background != Color.White
+    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val fgColor = MaterialTheme.colorScheme.onErrorContainer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = fgColor
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDec, enabled = quantity > 1.0) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+        }
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                IconButton(onClick = onInc) {
-                    Icon(Icons.Default.Add, contentDescription = "Incrementar")
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDec, enabled = quantity > 1.0) {
+                        Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+                    }
+                    // Show quantity with optional unit (no trailing dash)
+                    Text(quantityWithUnit, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    IconButton(onClick = onInc) {
+                        Icon(Icons.Default.Add, contentDescription = "Incrementar")
+                    }
+                    IconButton(onClick = onRequestDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }

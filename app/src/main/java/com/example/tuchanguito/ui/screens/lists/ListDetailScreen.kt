@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +50,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -86,11 +89,9 @@ import com.example.tuchanguito.ui.screens.lists.ListDetailViewModelFactory
 import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
 import com.example.tuchanguito.ui.screens.lists.ShareUiState
 import com.example.tuchanguito.ui.theme.ColorPrimary
+import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import androidx.compose.foundation.background
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,6 +117,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     var showShareDialog by remember { mutableStateOf(false) }
     var showFinalizeDialog by remember { mutableStateOf(false) }
     var addDialogBusy by remember { mutableStateOf(false) }
+    var itemToDeleteId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -220,7 +222,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                                             item.unit ?: item.product.unitFromMetadata()
                                         )
                                     },
-                                    onDelete = { viewModel.deleteItem(item.id) },
+                                    onRequestDelete = { itemToDeleteId = item.id },
                                     onToggleAcquired = { purchased -> viewModel.toggleItem(item.id, purchased) }
                                 )
                             }
@@ -293,56 +295,120 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
             onFinalize = { options -> viewModel.finalizeList(options) }
         )
     }
+
+    if (itemToDeleteId != null) {
+        AlertDialog(
+            onDismissRequest = { itemToDeleteId = null },
+            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
+            text = { Text(stringResource(id = R.string.confirm_delete_item_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = itemToDeleteId ?: return@TextButton
+                    itemToDeleteId = null
+                    viewModel.deleteItem(id)
+                }) { Text(stringResource(id = R.string.delete_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDeleteId = null }) { Text(stringResource(id = R.string.cancel)) }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListItemCard(
     item: ListItemDto,
     onQuantityChange: (Double) -> Unit,
-    onDelete: () -> Unit,
+    onRequestDelete: () -> Unit,
     onToggleAcquired: (Boolean) -> Unit
 ) {
     val product = item.product
     val formattedQuantity = remember(item.quantity) {
         if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else "%.2f".format(item.quantity)
     }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Checkbox(checked = item.purchased, onCheckedChange = onToggleAcquired)
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = product.name,
-                    fontWeight = FontWeight.Bold,
-                    textDecoration = if (item.purchased) TextDecoration.LineThrough else TextDecoration.None
-                )
-                Text(
-                    text = "$%.2f c/u".format(product.priceFromMetadata()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { target ->
+            if (target == SwipeToDismissBoxValue.EndToStart) {
+                onRequestDelete()
+                false
+            } else {
+                false
             }
-            Spacer(Modifier.width(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { if (item.quantity > 1) onQuantityChange(item.quantity - 1) else onDelete() }) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+        }
+    )
+    val isDark = MaterialTheme.colorScheme.background != Color.White
+    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val fgColor = MaterialTheme.colorScheme.onErrorContainer
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(vertical = 0.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = fgColor
+                    )
                 }
-                Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                IconButton(onClick = { onQuantityChange(item.quantity + 1) }) {
-                    Icon(Icons.Default.Add, contentDescription = "Incrementar")
+            }
+        }
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Checkbox(checked = item.purchased, onCheckedChange = onToggleAcquired)
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = product.name,
+                        fontWeight = FontWeight.Bold,
+                        textDecoration = if (item.purchased) TextDecoration.LineThrough else TextDecoration.None
+                    )
+                    // Show only the price number (no "c/u")
+                    Text(
+                        text = "$%.2f".format(product.priceFromMetadata()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { if (item.quantity > 1) onQuantityChange(item.quantity - 1) else onRequestDelete() }) {
+                        Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+                    }
+                    Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    IconButton(onClick = { onQuantityChange(item.quantity + 1) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Incrementar")
+                    }
+                    IconButton(onClick = onRequestDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -625,8 +691,14 @@ private fun FinalizeDialog(
     )
 }
 
-private fun ProductDto.priceFromMetadata(): Double =
-    metadata?.jsonObject?.get("price")?.jsonPrimitive?.doubleOrNull ?: 0.0
+private fun ProductDto.priceFromMetadata(): Double {
+    val map = metadata as? Map<*, *> ?: return 0.0
+    val priceAny = map["price"] ?: return 0.0
+    return (priceAny as? Number)?.toDouble() ?: priceAny.toString().toDoubleOrNull() ?: 0.0
+}
 
-private fun ProductDto.unitFromMetadata(): String =
-    metadata?.jsonObject?.get("unit")?.jsonPrimitive?.contentOrNull ?: "u"
+private fun ProductDto.unitFromMetadata(): String {
+    val map = metadata as? Map<*, *> ?: return "u"
+    val unitAny = map["unit"] ?: return "u"
+    return unitAny.toString().ifBlank { "u" }
+}

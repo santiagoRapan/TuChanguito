@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,7 +47,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,12 +65,8 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.ui.theme.ColorPrimary
+import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +84,7 @@ fun ProductsScreen() {
     val noProductsLabel = stringResource(id = R.string.no_products)
     val createErrorLabel = stringResource(id = R.string.create_error)
     val deleteErrorLabel = stringResource(id = R.string.delete_error)
-    val editLabel = stringResource(id = R.string.edit_profile) // reuse edit label
+    val editLabel = stringResource(id = R.string.edit_profile)
     val deleteLabel = stringResource(id = R.string.delete_error)
 
     var query by rememberSaveable { mutableStateOf("") }
@@ -98,6 +92,7 @@ fun ProductsScreen() {
 
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var editingProductId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var productIdToDelete by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var remoteCategories by remember { mutableStateOf(listOf<CategoryDto>()) }
     var remoteProducts by remember { mutableStateOf(listOf<ProductDto>()) }
@@ -113,7 +108,7 @@ fun ProductsScreen() {
                 remoteCategories = cats
                 if (selectedCategoryId != null && cats.none { it.id == selectedCategoryId }) selectedCategoryId = null
             }
-            .onFailure { snack.showSnackbar(it.message ?: "Error cargando categorías") }
+            .onFailure { snack.showSnackbar(it.message ?: "Error cargando categorias") }
     }
 
     LaunchedEffect(query, selectedCategoryId) {
@@ -198,19 +193,9 @@ fun ProductsScreen() {
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { target ->
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
-                                    scope.launch {
-                                        val id = p.id ?: return@launch
-                                        val res = runCatching { catalogRepository.deleteProduct(id) }
-                                        if (res.isFailure) {
-                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
-                                        } else {
-                                            remoteProducts = remoteProducts.filterNot { it.id == id }
-                                        }
-                                    }
-                                    true
-                                } else {
+                                    productIdToDelete = p.id
                                     false
-                                }
+                                } else false
                             }
                         )
                         SwipeToDismissBox(
@@ -247,17 +232,7 @@ fun ProductsScreen() {
                                 editLabel = editLabel,
                                 deleteLabel = deleteLabel,
                                 onEdit = { editingProductId = p.id },
-                                onDelete = {
-                                    scope.launch {
-                                        val id = p.id ?: return@launch
-                                        val res = runCatching { catalogRepository.deleteProduct(id) }
-                                        if (res.isFailure) {
-                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
-                                        } else {
-                                            remoteProducts = remoteProducts.filterNot { it.id == id }
-                                        }
-                                    }
-                                }
+                                onDelete = { productIdToDelete = p.id }
                             )
                         }
                     }
@@ -307,7 +282,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -322,11 +297,8 @@ fun ProductsScreen() {
 
     remoteProducts.firstOrNull { it.id == editingProductId }?.let { prod ->
         var name by rememberSaveable { mutableStateOf(prod.name) }
-        var priceText by rememberSaveable {
-            val price = prod.metadata.doubleValue("price")
-            mutableStateOf(price.toString())
-        }
-        var unit by rememberSaveable { mutableStateOf(prod.metadata.stringValue("unit")) }
+        var priceText by rememberSaveable { mutableStateOf("") }
+        var unit by rememberSaveable { mutableStateOf("") }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(prod.category?.id) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
@@ -364,7 +336,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -373,6 +345,31 @@ fun ProductsScreen() {
                         }
                     }
                 }
+            }
+        )
+    }
+
+    if (productIdToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { productIdToDelete = null },
+            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
+            text = { Text(stringResource(id = R.string.confirm_delete_product_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = productIdToDelete ?: return@TextButton
+                    productIdToDelete = null
+                    scope.launch {
+                        val res = runCatching { catalogRepository.deleteProduct(id) }
+                        if (res.isFailure) {
+                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
+                        } else {
+                            remoteProducts = remoteProducts.filterNot { it.id == id }
+                        }
+                    }
+                }) { Text(stringResource(id = R.string.delete_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { productIdToDelete = null }) { Text(stringResource(id = R.string.cancel)) }
             }
         )
     }
@@ -386,12 +383,14 @@ private fun ProductCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Card with white background (barras blancas) and no price line under the name
+    val isDark = MaterialTheme.colorScheme.background != Color.White
+    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onBackground)
+        colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Row(
             modifier = Modifier
@@ -405,7 +404,6 @@ private fun ProductCard(
                     text = product.name,
                     fontWeight = FontWeight.Bold
                 )
-                // Price line intentionally removed per request
             }
             Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -427,9 +425,3 @@ private fun ProductCard(
         }
     }
 }
-
-private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double =
-    this?.jsonObject?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
-
-private fun JsonElement?.stringValue(key: String): String =
-    this?.jsonObject?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()

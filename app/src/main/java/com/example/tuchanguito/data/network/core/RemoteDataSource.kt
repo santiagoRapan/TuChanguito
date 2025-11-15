@@ -24,15 +24,17 @@ abstract class RemoteDataSource {
             throw mapHttpException(error)
         } catch (error: IOException) {
             throw DataSourceException(
-                DataSourceException.Code.CONNECTION,
-                error.message ?: "Error de conexión",
-                error
+                code = DataSourceException.Code.CONNECTION,
+                statusCode = null,
+                message = error.message ?: "Error de conexión",
+                cause = error
             )
         } catch (error: Exception) {
             throw DataSourceException(
-                DataSourceException.Code.UNEXPECTED,
-                error.message ?: "Error inesperado",
-                error
+                code = DataSourceException.Code.UNEXPECTED,
+                statusCode = null,
+                message = error.message ?: "Error inesperado",
+                cause = error
             )
         }
     }
@@ -40,12 +42,18 @@ abstract class RemoteDataSource {
     private fun mapHttpException(exception: HttpException): DataSourceException {
         val body = exception.response()?.errorBody()?.peekString()
         val message = body?.let { parseMessage(it) } ?: exception.message()
-        val code = when (exception.code()) {
+        val statusCode = exception.code()
+        val code = when (statusCode) {
             400, 404, 409, 422 -> DataSourceException.Code.DATA
             401, 403 -> DataSourceException.Code.UNAUTHORIZED
             else -> DataSourceException.Code.UNEXPECTED
         }
-        return DataSourceException(code, message.ifBlank { "Error de servidor" }, exception)
+        return DataSourceException(
+            code = code,
+            statusCode = statusCode,
+            message = message.ifBlank { "Error de servidor" },
+            cause = exception
+        )
     }
 
     private fun parseMessage(raw: String): String {

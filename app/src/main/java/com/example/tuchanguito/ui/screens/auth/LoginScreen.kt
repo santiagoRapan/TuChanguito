@@ -234,7 +234,7 @@ fun LoginScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = stringResource(id = R.string.no_account_create),
+                        text =  stringResource(id= R.string.verify_account_info),
                          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                          style = MaterialTheme.typography.bodySmall,
                          textAlign = TextAlign.Center,

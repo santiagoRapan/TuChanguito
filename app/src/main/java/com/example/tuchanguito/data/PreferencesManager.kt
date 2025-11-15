@@ -1,11 +1,13 @@
 package com.example.tuchanguito.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -37,6 +39,27 @@ class PreferencesManager(private val context: Context) {
     suspend fun setAuthToken(token: String?) { context.dataStore.edit { if (token == null) it.remove(Keys.AUTH_TOKEN) else it[Keys.AUTH_TOKEN] = token } }
     suspend fun setPendingCredentials(email: String, password: String) { context.dataStore.edit { it[Keys.PENDING_EMAIL] = email; it[Keys.PENDING_PASSWORD] = password } }
     suspend fun clearPendingCredentials() { context.dataStore.edit { it.remove(Keys.PENDING_EMAIL); it.remove(Keys.PENDING_PASSWORD) } }
-    suspend fun setCurrentPantryId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.CURRENT_PANTRY_ID) else it[Keys.CURRENT_PANTRY_ID] = id.toString() } }
+    suspend fun setCurrentPantryId(id: Long?) { setCurrentPantryIdForUser(userId = null, id = id) }
+    suspend fun setCurrentPantryIdForUser(userId: Long?, id: Long?) {
+        val key = pantryKeyForUser(userId)
+        context.dataStore.edit {
+            if (id == null) {
+                it.remove(key)
+                if (userId == null) it.remove(Keys.CURRENT_PANTRY_ID)
+            } else {
+                it[key] = id.toString()
+                if (userId == null) it[Keys.CURRENT_PANTRY_ID] = id.toString()
+            }
+        }
+    }
+    suspend fun getCurrentPantryIdForUser(userId: Long?): Long? {
+        val key = pantryKeyForUser(userId)
+        return context.dataStore.data.map { prefs ->
+            prefs[key]?.toLongOrNull() ?: prefs[Keys.CURRENT_PANTRY_ID]?.toLongOrNull()
+        }.first()
+    }
     suspend fun setLastOpenedListId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.LAST_OPENED_LIST_ID) else it[Keys.LAST_OPENED_LIST_ID] = id.toString() } }
+
+    private fun pantryKeyForUser(userId: Long?): Preferences.Key<String> =
+        stringPreferencesKey("current_pantry_id_${userId ?: "default"}")
 }

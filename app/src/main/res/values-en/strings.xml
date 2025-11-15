@@ -90,6 +90,7 @@
     <string name="category_label">Category</string>
 
     <!-- Verify screen -->
+    <string name="verify_account_info">Enter your email to verify your account</string>
     <string name="verify_account">Verify account</string>
     <string name="email_to_verify">Email to verify</string>
     <string name="code_label">Code</string>

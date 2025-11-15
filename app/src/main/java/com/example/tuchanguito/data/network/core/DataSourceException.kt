@@ -5,6 +5,7 @@ package com.example.tuchanguito.data.network.core
  */
 class DataSourceException(
     val code: Code,
+    val statusCode: Int? = null,
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause) {

@@ -2,20 +2,26 @@ package com.example.tuchanguito.ui.screens.auth
 
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import com.example.tuchanguito.R
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.ui.screens.auth.AuthViewModel
 import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
+import com.example.tuchanguito.ui.theme.ColorSecondary
+import com.example.tuchanguito.ui.theme.PrimaryTextBlue
+import com.example.tuchanguito.ui.theme.ScreenBackgroundGrey
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,30 +45,35 @@ fun RegisterScreen(onRegistered: () -> Unit) {
     val passwordsNotMatchLabel = stringResource(id = R.string.passwords_do_not_match)
     val registeringLabel = stringResource(id = R.string.register)
     val genericErrorLabel = stringResource(id = R.string.generic_error)
+    val showPasswordLabel = stringResource(id = R.string.show_password)
+    val hidePasswordLabel = stringResource(id = R.string.hide_password)
 
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") } // New: confirm password
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val passwordsMatch = remember(password, confirm) { password.isNotBlank() && confirm.isNotBlank() && password == confirm }
 
     Scaffold(
+        containerColor = ScreenBackgroundGrey,
         topBar = {
             androidx.compose.material3.CenterAlignedTopAppBar(
-                title = { Text(titleLabel, color = androidx.compose.ui.graphics.Color.White) },
+                title = { Text(titleLabel, color = PrimaryTextBlue) },
                 navigationIcon = {
                     IconButton(onClick = { backDispatcher?.onBackPressed() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White)
+                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = ColorSecondary)
                     }
                 },
                 colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    containerColor = ScreenBackgroundGrey,
+                    titleContentColor = PrimaryTextBlue,
+                    navigationIconContentColor = ColorSecondary,
+                    actionIconContentColor = ColorSecondary
                 )
             )
         },
@@ -73,9 +84,37 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(emailLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(passwordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(passwordLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }, enabled = !isLoading) {
+                        val icon = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                        val iconDesc = if (passwordVisible) hidePasswordLabel else showPasswordLabel
+                        Icon(imageVector = icon, contentDescription = iconDesc, tint = ColorSecondary)
+                    }
+                },
+                enabled = !isLoading
+            )
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = confirm, onValueChange = { confirm = it }, label = { Text(confirmPasswordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), enabled = !isLoading)
+            OutlinedTextField(
+                value = confirm,
+                onValueChange = { confirm = it },
+                label = { Text(confirmPasswordLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { confirmVisible = !confirmVisible }, enabled = !isLoading) {
+                        val icon = if (confirmVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                        val iconDesc = if (confirmVisible) hidePasswordLabel else showPasswordLabel
+                        Icon(imageVector = icon, contentDescription = iconDesc, tint = ColorSecondary)
+                    }
+                },
+                enabled = !isLoading
+            )
             if (!passwordsMatch && (password.isNotEmpty() || confirm.isNotEmpty())) {
                 Spacer(Modifier.height(6.dp))
                 Text(text = passwordsNotMatchLabel, color = MaterialTheme.colorScheme.error)
@@ -104,8 +143,8 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                         error = msg
                     } finally { isLoading = false }
                 }
-            }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && passwordsMatch) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(registeringLabel)
+            }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && passwordsMatch, colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = Color.White)) {
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White) else Text(registeringLabel, color = Color.White)
             }
         }
     }

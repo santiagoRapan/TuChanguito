@@ -11,11 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
@@ -33,6 +39,7 @@ import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.ui.screens.auth.AuthViewModel
 import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
 import com.example.tuchanguito.ui.theme.ColorSecondary
+import com.example.tuchanguito.ui.theme.PrimaryTextBlue
 import com.example.tuchanguito.ui.theme.ScreenBackgroundGrey
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
@@ -70,16 +77,19 @@ fun LoginScreen(
     val loginErrorDefault = stringResource(id = R.string.loading_user_error)
     // Hoisted non-composable labels used inside coroutines
     val loginErrorLabel = stringResource(id = R.string.login_error)
+    val showPasswordLabel = stringResource(id = R.string.show_password)
+    val hidePasswordLabel = stringResource(id = R.string.hide_password)
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = ScreenBackgroundGrey
     ) { padding ->
         Column(
             Modifier
@@ -93,7 +103,7 @@ fun LoginScreen(
             // Título centrado "TuChanguito" usando el color secundario (importante)
             Text(
                 text = appName,
-                color = ColorSecondary,
+                color = PrimaryTextBlue,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -126,7 +136,21 @@ fun LoginScreen(
                         onValueChange = { password = it },
                         label = { Text(passwordLabel) },
                         modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { passwordVisible = !passwordVisible },
+                                enabled = !isLoading
+                            ) {
+                                val icon = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                                val iconDesc = if (passwordVisible) hidePasswordLabel else showPasswordLabel
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = iconDesc,
+                                    tint = ColorSecondary
+                                )
+                            }
+                        },
                         enabled = !isLoading
                     )
                     Spacer(Modifier.height(8.dp))
@@ -148,7 +172,7 @@ fun LoginScreen(
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         onClick = {
                             error = null
                             isLoading = true
@@ -181,7 +205,7 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = forgotPasswordLabel,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = ColorSecondary,
                             style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.Underline),
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
@@ -199,7 +223,7 @@ fun LoginScreen(
                                     append(" " + stringResource(id = R.string.register))
                                 }
                             },
-                            color = MaterialTheme.colorScheme.primary,
+                            color = ColorSecondary,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
@@ -219,7 +243,7 @@ fun LoginScreen(
                     ) {
                         Text(
                             verifyAccountLabel,
-                             color = MaterialTheme.colorScheme.primary,
+                             color = ColorSecondary,
                              modifier = Modifier.fillMaxWidth(),
                              textAlign = TextAlign.Center
                         )

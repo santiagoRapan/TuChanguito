@@ -74,7 +74,12 @@ class MyApplication : Application() {
     }
 
     val shoppingListHistoryRepository: ShoppingListHistoryRepository by lazy {
-        ShoppingListHistoryRepository(database.shoppingListDao())
+        ShoppingListHistoryRepository(
+            database.shoppingListDao(),
+            database.listItemDao(),
+            database.productDao(),
+            database.categoryDao()
+        )
     }
 
     val shoppingListsLocalRepository: ShoppingListsLocalRepository by lazy {

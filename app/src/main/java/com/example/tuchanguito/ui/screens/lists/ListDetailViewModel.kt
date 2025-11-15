@@ -275,7 +275,9 @@ class ListDetailViewModel(
                 }
 
                 val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
-                historyRepository.save(summaryList.id, summaryList.name)
+                // Save the list and its items into local history so it can be opened later without calling the API
+                val itemsForSave = items // items is already fetched above
+                historyRepository.save(summaryList.id, summaryList.name, itemsForSave)
                 if (summaryList.recurring) {
                     shoppingListsRepository.resetList(listId)
                 } else {

@@ -79,8 +79,12 @@ fun AppNavGraph(
         composable(Routes.LIST_HISTORY) {
             com.example.tuchanguito.ui.screens.lists.ListHistoryScreen(
                 onBack = { navController.popBackStack() },
-                onOpenList = { id -> navController.navigate("lists/detail/$id") }
+                onOpenList = { id -> navController.navigate("lists/history/detail/$id") }
             )
+        }
+        composable("lists/history/detail/{listId}") { backStack ->
+            val id = backStack.arguments?.getString("listId")?.toLongOrNull() ?: -1L
+            com.example.tuchanguito.ui.screens.lists.ArchivedListDetailScreen(listId = id, onBack = { navController.popBackStack() })
         }
         composable(Routes.PRODUCTS) { ProductsScreen() }
         composable(Routes.CATEGORIES) { CategoriesScreen() }

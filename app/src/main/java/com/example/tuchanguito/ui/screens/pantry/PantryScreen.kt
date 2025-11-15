@@ -8,20 +8,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -29,7 +35,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,19 +45,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
-import com.example.tuchanguito.ui.theme.ButtonBlue
 import com.example.tuchanguito.ui.theme.ColorPrimary
-import kotlin.math.roundToInt
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,16 +274,42 @@ private fun PantryItemRow(
     onDec: () -> Unit,
     onDelete: () -> Unit
 ) {
-    ListItem(
-        headlineContent = { Text(name) },
-        supportingContent = { Text("${quantity.roundToInt()} $unit") },
-        trailingContent = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDec, enabled = quantity > 1) { Text("-") }
-                Text(quantity.roundToInt().toString())
-                TextButton(onClick = onInc) { Text("+") }
-                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = null) }
+    val formattedQuantity = remember(quantity) {
+        if (quantity % 1.0 == 0.0) quantity.toInt().toString() else "%.2f".format(quantity)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onDec, enabled = quantity > 1.0) {
+                    Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+                }
+                Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                IconButton(onClick = onInc) {
+                    Icon(Icons.Default.Add, contentDescription = "Incrementar")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
-    )
+    }
 }

@@ -1,42 +1,83 @@
 package com.example.tuchanguito.ui.screens.products
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.R
-import com.example.tuchanguito.MyApplication
-import com.example.tuchanguito.data.network.model.CategoryDto
-import com.example.tuchanguito.data.network.model.ProductDto
-import com.example.tuchanguito.ui.theme.ButtonBlue
-import com.example.tuchanguito.ui.theme.ColorPrimary
-import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.R
+import com.example.tuchanguito.data.network.model.CategoryDto
+import com.example.tuchanguito.data.network.model.ProductDto
+import com.example.tuchanguito.ui.theme.ColorPrimary
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductsScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val catalogRepository = remember { app.catalogRepository }
     val scope = rememberCoroutineScope()
@@ -52,36 +93,29 @@ fun ProductsScreen() {
     val editLabel = stringResource(id = R.string.edit_profile) // reuse edit label
     val deleteLabel = stringResource(id = R.string.delete_error)
 
-    // Filters controlled by UI
     var query by rememberSaveable { mutableStateOf("") }
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Dialog/edit states must be declared before Scaffold usages
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var editingProductId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Server-driven state
     var remoteCategories by remember { mutableStateOf(listOf<CategoryDto>()) }
     var remoteProducts by remember { mutableStateOf(listOf<ProductDto>()) }
 
-    // Initial catalog sync clears local ghosts but UI below uses server lists directly
     LaunchedEffect(Unit) {
         val res = catalogRepository.syncCatalog()
         if (res.isFailure) snack.showSnackbar(res.exceptionOrNull()?.message ?: createErrorLabel)
     }
 
-    // Reload server categories whenever query changes (chips should only show categories with products)
     LaunchedEffect(query) {
         runCatching { catalogRepository.categoriesForQuery(query) }
             .onSuccess { cats ->
                 remoteCategories = cats
-                // If selected category disappeared for this query, reset selection
                 if (selectedCategoryId != null && cats.none { it.id == selectedCategoryId }) selectedCategoryId = null
             }
             .onFailure { snack.showSnackbar(it.message ?: "Error cargando categorías") }
     }
 
-    // Reload products whenever query/category changes
     LaunchedEffect(query, selectedCategoryId) {
         runCatching { catalogRepository.searchProducts(name = query, categoryId = selectedCategoryId) }
             .onSuccess { list -> remoteProducts = list }
@@ -90,10 +124,10 @@ fun ProductsScreen() {
 
     Scaffold(
         topBar = {
-            androidx.compose.material3.CenterAlignedTopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text(productsTitle, color = Color.White) },
                 windowInsets = TopAppBarDefaults.windowInsets,
-                colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
@@ -103,17 +137,16 @@ fun ProductsScreen() {
         },
         snackbarHost = { SnackbarHost(snack) },
         floatingActionButton = {
-            // Circular button styled like ListsScreen add button
             Button(
                 onClick = { showCreate = true },
                 shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = newProductDesc)
             }
         },
-        contentWindowInsets = WindowInsets.systemBars
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets.systemBars
     ) { padding ->
         Column(
             Modifier
@@ -122,7 +155,6 @@ fun ProductsScreen() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Búsqueda
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -132,8 +164,7 @@ fun ProductsScreen() {
                 singleLine = true
             )
 
-            // Chips solo para categorías con productos (según backend)
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
                     FilterChip(
                         selected = selectedCategoryId == null,
@@ -153,11 +184,12 @@ fun ProductsScreen() {
 
             HorizontalDivider()
 
-            // Lista de productos (desde backend), con acciones
-            androidx.compose.foundation.lazy.LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-                contentPadding = PaddingValues(bottom = 88.dp)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)
             ) {
                 if (remoteProducts.isEmpty()) {
                     item { Text(noProductsLabel, style = MaterialTheme.typography.bodyMedium) }
@@ -173,7 +205,6 @@ fun ProductsScreen() {
                                         if (res.isFailure) {
                                             snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
                                         } else {
-                                            // Actualiza UI localmente para evitar un GET extra
                                             remoteProducts = remoteProducts.filterNot { it.id == id }
                                         }
                                     }
@@ -197,50 +228,38 @@ fun ProductsScreen() {
                                         .padding(vertical = 0.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
-                                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
-                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = fgColor)
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            contentDescription = null,
+                                            tint = fgColor
+                                        )
                                     }
                                 }
                             }
                         ) {
-                            // Contenido del item
-                            ListItem(
-                                headlineContent = { Text(p.name) },
-                                supportingContent = {
-                                    val priceVal = p.metadata.doubleValue("price")
-                                    val priceStr = "%.2f".format(priceVal)
-                                    Text(stringResource(id = R.string.price_label) + ": $" + priceStr)
-                                },
-                                trailingContent = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        IconButton(onClick = { editingProductId = p.id }) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Edit,
-                                                contentDescription = editLabel,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                        IconButton(onClick = {
-                                            scope.launch {
-                                                val id = p.id ?: return@launch
-                                                val res = runCatching { catalogRepository.deleteProduct(id) }
-                                                if (res.isFailure) {
-                                                    snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
-                                                } else {
-                                                    remoteProducts = remoteProducts.filterNot { it.id == id }
-                                                }
-                                            }
-                                        }) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Delete,
-                                                contentDescription = deleteLabel,
-                                                tint = MaterialTheme.colorScheme.error
-                                            )
+                            ProductCard(
+                                product = p,
+                                editLabel = editLabel,
+                                deleteLabel = deleteLabel,
+                                onEdit = { editingProductId = p.id },
+                                onDelete = {
+                                    scope.launch {
+                                        val id = p.id ?: return@launch
+                                        val res = runCatching { catalogRepository.deleteProduct(id) }
+                                        if (res.isFailure) {
+                                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
+                                        } else {
+                                            remoteProducts = remoteProducts.filterNot { it.id == id }
                                         }
                                     }
                                 }
                             )
-                            HorizontalDivider()
                         }
                     }
                 }
@@ -267,11 +286,9 @@ fun ProductsScreen() {
                             val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
                             catalogRepository.createProduct(name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
                             showCreate = false
-                            // Refresh lists to reflect new product
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
                             remoteCategories = catalogRepository.categoriesForQuery(query)
                         } catch (t: Throwable) {
-                            // Surface the message instead of crashing the app
                             snack.showSnackbar(t.message ?: createErrorLabel)
                         } finally { busy = false }
                     }
@@ -284,7 +301,6 @@ fun ProductsScreen() {
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)
                     OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text(stringResource(id = R.string.price_label)) }, singleLine = true)
                     OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(stringResource(id = R.string.unit_label)) }, singleLine = true)
-                    // Selector/entrada de categoría: elegí existente o escribí una nueva
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
@@ -305,7 +321,6 @@ fun ProductsScreen() {
         )
     }
 
-    // Edit dialog usando los datos actuales de backend
     remoteProducts.firstOrNull { it.id == editingProductId }?.let { prod ->
         var name by rememberSaveable { mutableStateOf(prod.name) }
         var priceText by rememberSaveable {
@@ -328,7 +343,6 @@ fun ProductsScreen() {
                             val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
                             catalogRepository.updateProduct(prod.id, name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
                             editingProductId = null
-                            // Refresh products after edit
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
                             remoteCategories = catalogRepository.categoriesForQuery(query)
                         } catch (t: Throwable) {
@@ -362,6 +376,61 @@ fun ProductsScreen() {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ProductCard(
+    product: ProductDto,
+    editLabel: String,
+    deleteLabel: String,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val priceVal = product.metadata.doubleValue("price")
+    val priceStr = "%.2f".format(priceVal)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = product.name,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${"$"}${priceStr} c/u",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = editLabel,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = deleteLabel,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
     }
 }
 

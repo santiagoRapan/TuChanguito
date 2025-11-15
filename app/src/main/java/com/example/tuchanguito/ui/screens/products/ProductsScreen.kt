@@ -1,6 +1,5 @@
 package com.example.tuchanguito.ui.screens.products
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,12 +65,8 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.ui.theme.ColorPrimary
+import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,6 +95,9 @@ fun ProductsScreen() {
 
     var remoteCategories by remember { mutableStateOf(listOf<CategoryDto>()) }
     var remoteProducts by remember { mutableStateOf(listOf<ProductDto>()) }
+    // Pending delete state used to show confirmation dialog before deleting a product
+    var pendingDeleteProductId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteProductName by remember { mutableStateOf<String?>(null) }
 
     // Helper to delete a product and clean all references in pantry and lists
     fun removeProductEverywhere(productId: Long, productName: String) {
@@ -239,11 +237,16 @@ fun ProductsScreen() {
                 } else {
                     items(remoteProducts.size, key = { idx -> remoteProducts[idx].id }) { i ->
                         val p = remoteProducts[i]
+                        val isDark = MaterialTheme.colorScheme.background != Color.White
+                        val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { target ->
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
-                                    removeProductEverywhere(p.id, p.name)
-                                    true
+                                    // Show confirmation dialog instead of deleting immediately
+                                    pendingDeleteProductId = p.id
+                                    pendingDeleteProductName = p.name
+                                    // Do not auto-dismiss the item; wait for user confirmation
+                                    false
                                 } else {
                                     false
                                 }
@@ -258,22 +261,27 @@ fun ProductsScreen() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 56.dp)
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(vertical = 0.dp),
-                                    contentAlignment = Alignment.CenterEnd
+                                        .heightIn(min = 56.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        Modifier
+                                    Card(
+                                        modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.End
+                                            .heightIn(min = 56.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                                     ) {
-                                        Icon(
-                                            Icons.Filled.Delete,
-                                            contentDescription = null,
-                                            tint = fgColor
-                                        )
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Delete,
+                                                contentDescription = null,
+                                                tint = fgColor
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -282,9 +290,12 @@ fun ProductsScreen() {
                                 product = p,
                                 editLabel = editLabel,
                                 deleteLabel = deleteLabel,
+                                cardColor = cardColor,
                                 onEdit = { editingProductId = p.id },
                                 onDelete = {
-                                    removeProductEverywhere(p.id, p.name)
+                                    // Don't delete immediately: ask for confirmation like in lists
+                                    pendingDeleteProductId = p.id
+                                    pendingDeleteProductName = p.name
                                 }
                             )
                         }
@@ -404,6 +415,27 @@ fun ProductsScreen() {
             }
         )
     }
+
+    // Confirmation dialog for product deletion (used by both swipe and delete button)
+    if (pendingDeleteProductId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteProductId = null; pendingDeleteProductName = null },
+            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
+            text = { Text(stringResource(id = R.string.confirm_delete_product_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = pendingDeleteProductId ?: return@TextButton
+                    val name = pendingDeleteProductName ?: ""
+                    pendingDeleteProductId = null
+                    pendingDeleteProductName = null
+                    removeProductEverywhere(id, name)
+                }) { Text(stringResource(id = R.string.delete_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteProductId = null; pendingDeleteProductName = null }) { Text(stringResource(id = R.string.cancel)) }
+            }
+        )
+    }
 }
 
 @Composable
@@ -411,6 +443,7 @@ private fun ProductCard(
     product: ProductDto,
     editLabel: String,
     deleteLabel: String,
+    cardColor: Color = Color.White,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -419,7 +452,7 @@ private fun ProductCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onBackground)
+        colors = CardDefaults.cardColors(containerColor = cardColor, contentColor = MaterialTheme.colorScheme.onBackground)
     ) {
         Row(
             modifier = Modifier
@@ -456,8 +489,15 @@ private fun ProductCard(
     }
 }
 
-private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double =
-    this?.jsonObject?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
+// Metadata helpers use Any? -> Map<*,*> to avoid serialization dependency
+private fun Any?.doubleValue(key: String, default: Double = 0.0): Double {
+    val map = this as? Map<*, *> ?: return default
+    val v = map[key] ?: return default
+    return (v as? Number)?.toDouble() ?: v.toString().toDoubleOrNull() ?: default
+}
 
-private fun JsonElement?.stringValue(key: String): String =
-    this?.jsonObject?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()
+private fun Any?.stringValue(key: String): String {
+    val map = this as? Map<*, *> ?: return ""
+    val v = map[key] ?: return ""
+    return v.toString().ifBlank { "" }
+}

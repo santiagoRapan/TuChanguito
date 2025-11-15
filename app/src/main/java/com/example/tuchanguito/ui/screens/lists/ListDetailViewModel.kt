@@ -103,8 +103,8 @@ class ListDetailViewModel(
                     )
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Error al cargar la lista") }
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al cargar la lista"))
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Error loading list") }
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error loading list"))
                 }
             )
         }
@@ -126,7 +126,7 @@ class ListDetailViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al actualizar cantidad"))
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error updating quantity"))
                 }
             )
         }
@@ -142,7 +142,7 @@ class ListDetailViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al eliminar producto"))
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error deleting item"))
                 }
             )
         }
@@ -158,7 +158,7 @@ class ListDetailViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al actualizar estado"))
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error updating status"))
                 }
             )
         }
@@ -169,7 +169,7 @@ class ListDetailViewModel(
             val trimmedName = name.trim()
             val trimmedCategory = categoryName.trim()
             if (trimmedName.isEmpty() || trimmedCategory.isEmpty()) {
-                _events.emit(ListDetailEvent.ShowSnackbar("El nombre y la categoría son obligatorios"))
+                _events.emit(ListDetailEvent.ShowSnackbar("Name and category are required"))
                 return@launch
             }
             val normalizedUnit = unit?.takeIf { it.isNotBlank() } ?: "u"
@@ -192,16 +192,16 @@ class ListDetailViewModel(
                                 if (handled) {
                                     _events.emit(ListDetailEvent.ItemAdded)
                                 } else {
-                                    _events.emit(ListDetailEvent.ShowSnackbar("Ya existe un ítem con ese producto y no se pudo actualizar."))
+                                    _events.emit(ListDetailEvent.ShowSnackbar("Existing item couldn't be updated."))
                                 }
                             } else {
-                                _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al añadir producto"))
+                                _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error adding item"))
                             }
                         }
                     )
                 },
                 onFailure = { error ->
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al crear el producto"))
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error creating product"))
                 }
             )
         }
@@ -212,8 +212,8 @@ class ListDetailViewModel(
             _shareState.value = ShareUiState(isBusy = true, message = null, isError = false)
             val result = runCatching { shoppingListsRepository.shareList(listId, email) }
             _shareState.value = result.fold(
-                onSuccess = { ShareUiState(isBusy = false, message = "Lista compartida con éxito", isError = false) },
-                onFailure = { error -> ShareUiState(isBusy = false, message = error.message ?: "Error al compartir", isError = true) }
+                onSuccess = { ShareUiState(isBusy = false, message = "List shared successfully", isError = false) },
+                onFailure = { error -> ShareUiState(isBusy = false, message = error.message ?: "Error sharing list", isError = true) }
             )
         }
     }
@@ -285,11 +285,11 @@ class ListDetailViewModel(
             _uiState.update { it.copy(isProcessing = false) }
             result.fold(
                 onSuccess = {
-                    _events.emit(ListDetailEvent.ShowSnackbar("Lista finalizada"))
+                    _events.emit(ListDetailEvent.ShowSnackbar("List finalized"))
                     _events.emit(ListDetailEvent.ListFinalized)
                 },
                 onFailure = { error ->
-                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error al finalizar la lista"))
+                    _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error finalizing list"))
                 }
             )
         }
@@ -368,5 +368,3 @@ class ListDetailViewModelFactory(
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-
-

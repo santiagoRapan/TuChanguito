@@ -1,66 +1,66 @@
 ﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="app_name">TuChanguito</string>
-    <string name="login">Sign in</string>
-    <string name="register">Register</string>
+    <string name="login">Iniciar sesión </string>
+    <string name="register">Regístrate</string>
     <string name="email">Email</string>
-    <string name="password">Password</string>
-    <string name="remember_me">Remember me</string>
-    <string name="forgot_password">Forgot your password?</string>
-    <string name="no_account_create">Do not have an account? Create one.</string>
-    <string name="home">Home</string>
-    <string name="lists">Lists</string>
-    <string name="pantry">Pantry</string>
-    <string name="profile">Profile</string>
+    <string name="password">Contraseña</string>
+    <string name="remember_me">Recuérdame</string>
+    <string name="forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="no_account_create">¿No tienes una cuenta? Regístrate.</string>
+    <string name="home">Inicio</string>
+    <string name="lists">Listas</string>
+    <string name="pantry">Alacena</string>
+    <string name="profile">Perfil</string>
     <string name="new_list">Crear lista</string>
     <string name="new_product">Crear producto</string>
-    <string name="configure_categories">Configurar categorias</string>
-    <string name="pending">pending</string>
-    <string name="open">Open</string>
-    <string name="total_cost">Total cost</string>
+    <string name="configure_categories">Configurar categorías</string>
+    <string name="pending">Pendientes</string>
+    <string name="open">Abrir</string>
+    <string name="total_cost">Costo total</string>
 
     <!-- Added keys for UI screens -->
-    <string name="modify_password">Modify password</string>
-    <string name="back">Back</string>
-    <string name="verify_identity">Verify your identity</string>
-    <string name="current_password">Current password</string>
-    <string name="verify">Verify</string>
-    <string name="choose_new_password">Choose a new password</string>
-    <string name="new_password">New password</string>
-    <string name="confirm_new_password">Confirm new password</string>
-    <string name="complete_both_fields">Please complete both fields</string>
-    <string name="passwords_do_not_match">Passwords do not match</string>
-    <string name="error_changing_password">Error changing password</string>
-    <string name="save_new_password">Save new password</string>
+    <string name="modify_password">Cambiar contraseña</string>
+    <string name="back">Volver</string>
+    <string name="verify_identity">Verifica tu identidad</string>
+    <string name="current_password">Contraseña actual</string>
+    <string name="verify">Verificar</string>
+    <string name="choose_new_password">Elige una nueva contraseña</string>
+    <string name="new_password">Nueva contraseña</string>
+    <string name="confirm_new_password">Confirmar nueva contraseña</string>
+    <string name="complete_both_fields">Complete ambos campos por favor</string>
+    <string name="passwords_do_not_match">Las contraseñas no coinciden</string>
+    <string name="error_changing_password">Error cambiando contraseñas</string>
+    <string name="save_new_password">Guardar nueva contraseña</string>
 
-    <string name="user_data">User data</string>
-    <string name="name">Name</string>
-    <string name="surname">Surname</string>
-    <string name="edit_profile">Edit profile</string>
-    <string name="change_password">Change password</string>
-    <string name="save_changes">Save changes</string>
-    <string name="cancel">Cancel</string>
-    <string name="personalization">Personalization</string>
-    <string name="loading_user_error">Error loading user</string>
+    <string name="user_data">Datos del usuario</string>
+    <string name="name">Nombre</string>
+    <string name="surname">Apellido</string>
+    <string name="edit_profile">Editar perfil</string>
+    <string name="change_password">Cambiar contraseña</string>
+    <string name="save_changes">Guardar cambios</string>
+    <string name="cancel">Cancelar</string>
+    <string name="personalization">Personalización</string>
+    <string name="loading_user_error">Error cargando usuario</string>
 
-    <string name="categories">Categories</string>
-    <string name="add">Add</string>
-    <string name="create_list">Create list</string>
-    <string name="create">Create</string>
-    <string name="create_list_dialog_title">New list</string>
-    <string name="list_name_label">List name</string>
-    <string name="list_already_exists">A list with that name already exists</string>
-    <string name="rename_error">Could not rename</string>
-    <string name="delete_error">Could not delete</string>
+    <string name="categories">Categorías</string>
+    <string name="add">Agregar</string>
+    <string name="create_list">Crear lista</string>
+    <string name="create">Crear</string>
+    <string name="create_list_dialog_title">Nueva lista</string>
+    <string name="list_name_label">Nombre de la lista</string>
+    <string name="list_already_exists">Ya hay una lista con ese nombre</string>
+    <string name="rename_error">Error renombrando</string>
+    <string name="delete_error">Error borrando</string>
 
-    <string name="search">Search</string>
-    <string name="all">All</string>
-    <string name="no_products_in_pantry">No products in the pantry</string>
-    <string name="add_to_pantry">Add to pantry</string>
-    <string name="product">Product</string>
-    <string name="share_list_chooser">Share list</string>
-    <string name="copy_list_content">Copy list content</string>
-    <string name="share_with_user">Share list with user</string>
-    <string name="no_category">No category</string>
+    <string name="search">Buscar</string>
+    <string name="all">Todo</string>
+    <string name="no_products_in_pantry">Sin productos en la alacena</string>
+    <string name="add_to_pantry">Agregar a la alacena</string>
+    <string name="product">Producto</string>
+    <string name="share_list_chooser">Compartir lista</string>
+    <string name="copy_list_content">Copiar lista</string>
+    <string name="share_with_user">Compartir lista con usuario</string>
+    <string name="no_category">Sin categoría</string>
     <string name="unit_default">u</string>
 
     <string name="minus">-</string>
@@ -68,92 +68,92 @@
 
     <!-- Dialog confirmations -->
     <string name="no">No</string>
-    <string name="yes">Yes</string>
+    <string name="yes">Sí</string>
 
-    <string name="delete_item_error">Could not delete item from list</string>
-    <string name="update_quantity_error">Could not update quantity</string>
-    <string name="change_state_error">Could not change state</string>
-    <string name="session_closed">Session closed</string>
+    <string name="delete_item_error">No fue posible borrar el producto de la lista</string>
+    <string name="update_quantity_error">No fue posible actualizar la cantidad</string>
+    <string name="change_state_error">No fue posible cambiar el estado</string>
+    <string name="session_closed">Sesión cerrada</string>
     <string name="total_label">Total: $%d</string>
 
     <!-- Additional keys -->
-    <string name="add_item_error">Could not add product to list</string>
-    <string name="share_success">The list has been shared</string>
-    <string name="logout_confirm">Are you sure you want to log out?</string>
-    <string name="logout_title">Log out</string>
-    <string name="close_list">Close list</string>
-    <string name="finalize">Finalize</string>
-    <string name="add_product_to_list">Add product to list</string>
-    <string name="add_label">Add</string>
-    <string name="price_label">Price</string>
-    <string name="unit_label">Unit</string>
-    <string name="category_label">Category</string>
+    <string name="add_item_error">No fue posible agregar el producto</string>
+    <string name="share_success">La lista fue compartida con éxito</string>
+    <string name="logout_confirm">¿Está seguro de querer cerrar sesión?</string>
+    <string name="logout_title">Cerrar sesión</string>
+    <string name="close_list">Cerrar lista</string>
+    <string name="finalize">Finalizar</string>
+    <string name="add_product_to_list">Añadir producto a la lista</string>
+    <string name="add_label">Añadir</string>
+    <string name="price_label">Precio</string>
+    <string name="unit_label">Unidad</string>
+    <string name="category_label">Categoría</string>
 
     <!-- Verify screen -->
-    <string name="verify_account">Verify account</string>
-    <string name="email_to_verify">Email to verify</string>
-    <string name="code_label">Code</string>
-    <string name="enter_valid_email">Enter a valid email</string>
-    <string name="code_resent_fmt">Code resent to %s</string>
-    <string name="resend_error">Could not resend code (verify the email is registered)</string>
-    <string name="resend_button">Resend code</string>
-    <string name="recover_password_title">Recover password</string>
-    <string name="recover_password_instructions">Enter your email and we will send you a recovery code.</string>
-    <string name="recover_password_send">Send email</string>
-    <string name="recover_password_email_sent">We sent a recovery code to your email.</string>
-    <string name="recover_password_reset">Reset password</string>
-    <string name="recover_password_success">Password reset successfully. Please log in with your new password.</string>
-    <string name="recover_password_start_over">Use a different email</string>
+    <string name="verify_account">Verificar cuenta</string>
+    <string name="email_to_verify">Email a verificar</string>
+    <string name="code_label">Código</string>
+    <string name="enter_valid_email">Introduzca un email válido</string>
+    <string name="code_resent_fmt">Código reenviado a %s</string>
+    <string name="resend_error">No se pudo reenviar el código, verifique que el email no esté registrado</string>
+    <string name="resend_button">Reenviar código</string>
+    <string name="recover_password_title">Recuperar contraseña</string>
+    <string name="recover_password_instructions">Introduzca su email para recibir un código de recuperación</string>
+    <string name="recover_password_send">Enviar email</string>
+    <string name="recover_password_email_sent">Hemos enviado un código de recuperación a su email</string>
+    <string name="recover_password_reset">Cambiar contraseña</string>
+    <string name="recover_password_success">Contraseña cambiada correctamente. Por favor inicie sesión con su nueva contraseña.</string>
+    <string name="recover_password_start_over">Use un email diferente</string>
 
     <!-- Profile -->
-    <string name="profile_updated">Profile updated</string>
-    <string name="error_saving">Error saving</string>
-    <string name="theme_light">Light theme</string>
+    <string name="profile_updated">Perfil actualizado</string>
+    <string name="error_saving">Error al guardar</string>
+    <string name="theme_light">Tema claro</string>
 
     <!-- Generic errors -->
     <string name="generic_error">Error</string>
-    <string name="login_error">Login error</string>
+    <string name="login_error">Error de inicio de sesión</string>
 
     <!-- Additional app strings -->
-    <string name="products_title">Products</string>
-    <string name="no_products">No products</string>
-    <string name="create_error">Could not create</string>
+    <string name="products_title">Productos</string>
+    <string name="no_products">No hay productos</string>
+    <string name="create_error">No se pudo crear</string>
 
-    <string name="processing">Processing...</string>
-    <string name="close_label">Close</string>
-    <string name="share_label">Share</string>
-    <string name="open_label">Open</string>
+    <string name="processing">Procesando…</string>
+    <string name="close_label">Cerrar</string>
+    <string name="share_label">Compartir</string>
+    <string name="open_label">Abrir</string>
 
     <!-- ShareListDialog and FinalizeDialog strings -->
-    <string name="share_dialog_title">Share list</string>
-    <string name="share_enter_email">Enter the email of the user to share the list with</string>
-    <string name="invalid_email">Enter a valid email</string>
-    <string name="share_button">Share</string>
+    <string name="share_dialog_title">Compartir lista</string>
+    <string name="share_enter_email">Ingresa el email del usuario con quien compartir la lista</string>
+    <string name="invalid_email">Ingresa un email válido</string>
+    <string name="share_button">Compartir</string>
 
-    <string name="finalize_question">What do you want to do when finalizing?</string>
-    <string name="add_purchased_to_pantry">Add purchased products to pantry</string>
-    <string name="move_not_purchased">Move not purchased products to another list</string>
-    <string name="select_list">Select list</string>
-    <string name="create_new">Create new</string>
-    <string name="new_list_name_label">New list name</string>
-    <string name="select_destination">Select a destination list:</string>
-    <string name="no_lists_available">No lists available</string>
+    <string name="finalize_question">¿Qué desea hacer al finalizar?</string>
+    <string name="add_purchased_to_pantry">Agregar productos comprados a la alacena</string>
+    <string name="move_not_purchased">Mover productos no comprados a otra lista</string>
+    <string name="select_list">Seleccionar lista</string>
+    <string name="create_new">Crear nueva</string>
+    <string name="new_list_name_label">Nombre de la nueva lista</string>
+    <string name="select_destination">Seleccione una lista de destino:</string>
+    <string name="no_lists_available">No hay listas disponibles</string>
 
-    <string name="loading_categories_error">Error loading categories</string>
-    <string name="loading_products_error">Error loading products</string>
+    <string name="loading_categories_error">Error al cargar categorías</string>
+    <string name="loading_products_error">Error al cargar productos</string>
 
-    <string name="name_label">Name</string>
-    <string name="email_label">Email</string>
-    <string name="low_stock">Low stock</string>
-    <string name="pending_label">%d pending</string>
-    <string name="default_active_list_title">Supermarket - Today</string>
+    <string name="name_label">Nombre</string>
+    <string name="email_label">Correo electrónico</string>
+    <string name="low_stock">Bajo stock</string>
+    <string name="pending_label">%d pendientes</string>
+    <string name="default_active_list_title">Supermercado - Hoy</string>
 
     <!-- Share error messages -->
-    <string name="share_error_404">We could not find a registered user with that email</string>
-    <string name="share_error_409">You already shared this list with that email</string>
-    <string name="share_error_400">Could not share the list. Check the email.</string>
-    <string name="share_error_unauthorized">You are not authorized to perform this action</string>
-    <string name="share_error_default">Could not share the list</string>
+    <string name="share_error_404">No pudimos encontrar un usuario registrado con ese email</string>
+    <string name="share_error_409">Ya compartiste esta lista con ese email</string>
+    <string name="share_error_400">No se pudo compartir la lista. Verifica el email.</string>
+    <string name="share_error_unauthorized">No estás autorizado para realizar esta acción</string>
+    <string name="share_error_default">No se pudo compartir la lista</string>
 
     <!-- Home -->
     <string name="home_active_list_title">Lista activa</string>
@@ -162,31 +162,38 @@
     <string name="home_active_list_total">Total: $%1$d</string>
     <string name="home_active_list_open_button">Abrir lista</string>
     <string name="home_active_list_empty_title">No hay listas activas</string>
-    <string name="home_active_list_empty_short">Todavia no tenes una lista activa.</string>
+    <string name="home_active_list_empty_short">Todavía no tenes una lista activa.</string>
     <string name="home_create_list_button">Crear lista</string>
-    <string name="home_quick_actions_title">Acciones rapidas</string>
+    <string name="home_quick_actions_title">Acciones rápidas</string>
     <string name="home_quick_action_new_list_title">Nueva lista</string>
     <string name="home_quick_action_new_product_title">Nuevo producto</string>
-    <string name="home_quick_action_categories_title">Configurar categorias</string>
+    <string name="home_quick_action_categories_title">Configurar categorías</string>
     <string name="home_low_stock_title">Bajo stock</string>
     <string name="home_low_stock_empty">No hay productos con stock bajo.</string>
-    <string name="home_low_stock_destination_fallback">tu proxima lista</string>
+    <string name="home_low_stock_destination_fallback">tu próxima lista</string>
     <string name="home_low_stock_add">Agregar %1$d a %2$s</string>
     <string name="home_low_stock_unknown_product">Producto sin nombre</string>
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
 
     <!-- Strings for ListsScreen -->
-    <string name="my_lists">My Lists</string>
+    <string name="my_lists">Mis listas</string>
     <string name="no_lists_found">No tienes listas creadas. Presiona el + para crear una.</string>
-    <string name="rename_list_dialog_title">Rename List</string>
-    <string name="rename_list_content_description">Rename list</string>
-    <string name="delete_list_content_description">Delete list</string>
-    <string name="mark_as_recurrent">Mark as recurrent</string>
-    <string name="active_lists_title">Active lists</string>
-    <string name="recurring_lists_title">Recurring lists</string>
-    <string name="open_list">Open</string>
+    <string name="rename_list_dialog_title">Renombrar lista</string>
+    <string name="rename_list_content_description">Renombrar lista</string>
+    <string name="delete_list_content_description">Eliminar lista</string>
+    <string name="mark_as_recurrent">Marcar como recurrente</string>
+    <string name="active_lists_title">Listas activas</string>
+    <string name="recurring_lists_title">Listas recurrentes</string>
+    <string name="open_list">Abrir</string>
     <string name="view_list_history">Ver historial</string>
     <string name="list_history_title">Historial de listas</string>
     <string name="list_history_empty">Todavía no hay historial de listas.</string>
     <string name="list_history_hint">Vuelve a abrir esta lista para reutilizarla.</string>
+    <string name="view_history">Ver historial</string>
+
+    <!-- ListDetailScreen strings -->
+    <string name="price_each_fmt">$%.2f c/u</string>
+    <string name="decrement_desc">Disminuir</string>
+    <string name="increment_desc">Incrementar</string>
+    <string name="delete_desc">Eliminar</string>
 </resources>

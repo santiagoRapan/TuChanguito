@@ -349,22 +349,27 @@ fun ListItemCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 56.dp)
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(vertical = 0.dp),
-                contentAlignment = Alignment.CenterEnd
+                    .heightIn(min = 56.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    Modifier
+                Card(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.End
+                        .heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        tint = fgColor
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = fgColor
+                        )
+                    }
                 }
             }
         }

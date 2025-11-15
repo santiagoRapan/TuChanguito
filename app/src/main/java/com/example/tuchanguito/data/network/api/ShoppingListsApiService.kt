@@ -3,6 +3,7 @@ package com.example.tuchanguito.data.network.api
 import com.example.tuchanguito.data.network.model.CreateListItemRequestDto
 import com.example.tuchanguito.data.network.model.CreateShoppingListRequestDto
 import com.example.tuchanguito.data.network.model.ListItemDto
+import com.example.tuchanguito.data.network.model.ListItemEnvelopeDto
 import com.example.tuchanguito.data.network.model.PaginatedResponseDto
 import com.example.tuchanguito.data.network.model.PurchaseListRequestDto
 import com.example.tuchanguito.data.network.model.ShareListRequestDto
@@ -58,8 +59,8 @@ interface ShoppingListsApiService {
     @POST("api/shopping-lists/{id}/reset")
     suspend fun resetList(@Path("id") id: Long): ShoppingListDto
 
-    @POST("api/shopping-lists/{id}/pantry")
-    suspend fun moveListToPantry(@Path("id") id: Long): ShoppingListDto
+    @POST("api/shopping-lists/{id}/move-to-pantry")
+    suspend fun moveListToPantry(@Path("id") id: Long): retrofit2.Response<kotlin.Unit>
 
     // Share
     @POST("api/shopping-lists/{id}/share")
@@ -79,13 +80,19 @@ interface ShoppingListsApiService {
 
     // Items
     @GET("api/shopping-lists/{id}/items")
-    suspend fun getItems(@Path("id") id: Long): List<ListItemDto>
+    suspend fun getItems(
+        @Path("id") id: Long,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+        @Query("sort_by") sortBy: String? = null,
+        @Query("order") order: String? = null
+    ): PaginatedResponseDto<ListItemDto>
 
     @POST("api/shopping-lists/{id}/items")
     suspend fun addItem(
         @Path("id") listId: Long,
         @Body body: CreateListItemRequestDto
-    ): ListItemDto
+    ): ListItemEnvelopeDto
 
     @PUT("api/shopping-lists/{id}/items/{item_id}")
     suspend fun updateItem(

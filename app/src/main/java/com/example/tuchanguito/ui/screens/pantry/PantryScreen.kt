@@ -1,153 +1,140 @@
 package com.example.tuchanguito.ui.screens.pantry
 
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
-import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantryScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { AppRepository.get(context) }
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val app = context.applicationContext as MyApplication
+    val viewModel: PantryViewModel = viewModel(
+        factory = PantryViewModelFactory(app.pantryRepository, app.productRepository, app.categoryRepository)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHost = remember { SnackbarHostState() }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
-    val pantryItems by repo.pantry().collectAsState(initial = emptyList())
-    val products by repo.products().collectAsState(initial = emptyList())
-    val categories by repo.categories().collectAsState(initial = emptyList())
-
-    val snack = remember { SnackbarHostState() }
-
-    // Hoisted localized strings (used in this composable scope)
-    val pantryTitle = stringResource(id = R.string.pantry)
-    val searchLabel = stringResource(id = R.string.search)
-    val allLabel = stringResource(id = R.string.all)
-    val noProductsLabel = stringResource(id = R.string.no_products_in_pantry)
-    val deleteErrorLabel = stringResource(id = R.string.delete_error)
-    val productLabel = stringResource(id = R.string.product)
-    val unitDefault = stringResource(id = R.string.unit_default)
-    val addItemError = stringResource(id = R.string.add_item_error)
-
-    var query by rememberSaveable { mutableStateOf("") }
-    var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var showAdd by rememberSaveable { mutableStateOf(false) }
-
-    // Backend-driven categories for chips (stable for current search)
-    var chipCategories by remember { mutableStateOf<List<Pair<Long, String>>>(emptyList()) }
-
-    // Load categories for current search text
-    LaunchedEffect(query) {
-        val list = runCatching { repo.pantryCategoriesForQuery(query.ifBlank { null }) }.getOrDefault(emptyList())
-        chipCategories = list.mapNotNull { it.id?.let { id -> id to it.name } }
-        if (selectedCategoryId != null && chipCategories.none { it.first == selectedCategoryId }) {
-            selectedCategoryId = null
-        }
-    }
-
-    // Sync pantry items when search or selected category changes
-    LaunchedEffect(query, selectedCategoryId) {
-        runCatching { repo.syncPantry(search = query.ifBlank { null }, categoryId = selectedCategoryId) }
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { snackbarHost.showSnackbar(it) }
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(pantryTitle) }) },
-        snackbarHost = { SnackbarHost(snack) },
-        floatingActionButton = { FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Default.Add, contentDescription = null) } },
-        contentWindowInsets = WindowInsets.systemBars
+        topBar = { TopAppBar(title = { Text(stringResource(id = R.string.pantry)) }) },
+        snackbarHost = { SnackbarHost(snackbarHost) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_product_to_list))
+            }
+        }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
+                value = uiState.query,
+                onValueChange = viewModel::onQueryChange,
+                label = { Text(stringResource(id = R.string.search)) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(searchLabel) },
                 singleLine = true
             )
 
-            val productById = remember(products) { products.associateBy { it.id } }
-
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
-                    FilterChip(selected = selectedCategoryId == null, onClick = { selectedCategoryId = null }, label = { Text(allLabel) })
+                    FilterChip(
+                        selected = uiState.selectedCategoryId == null,
+                        onClick = { viewModel.onCategorySelected(null) },
+                        label = { Text(stringResource(id = R.string.all)) }
+                    )
                 }
-                items(chipCategories.size) { i ->
-                    val (id, name) = chipCategories[i]
-                    FilterChip(selected = selectedCategoryId == id, onClick = { selectedCategoryId = id }, label = { Text(name) })
+                items(uiState.chipCategories, key = { it.id }) { chip ->
+                    FilterChip(
+                        selected = uiState.selectedCategoryId == chip.id,
+                        onClick = { viewModel.onCategorySelected(chip.id) },
+                        label = { Text(chip.name) }
+                    )
                 }
             }
 
-            HorizontalDivider()
-
-            LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 88.dp)) {
-                if (pantryItems.isEmpty()) {
-                    item { Text(noProductsLabel, style = MaterialTheme.typography.bodyMedium) }
+            if (uiState.isLoading) {
+                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                if (uiState.items.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(stringResource(id = R.string.no_products_in_pantry))
+                    }
                 } else {
-                    items(pantryItems, key = { it.id }) { pi ->
-                        val p = productById[pi.productId]
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { target ->
-                                if (target == SwipeToDismissBoxValue.EndToStart) {
-                                    scope.launch {
-                                        try { repo.deletePantryItem(pi.id) } catch (t: Throwable) {
-                                            snack.showSnackbar(t.message ?: deleteErrorLabel)
-                                        }
-                                    }
-                                    true
-                                } else false
-                            }
-                        )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
-                            backgroundContent = {
-                                val fg = MaterialTheme.colorScheme.onErrorContainer
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 56.dp)
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(vertical = 0.dp),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = fg)
-                                    }
-                                }
-                            }
-                        ) {
-                            PantryRow(
-                                name = p?.name ?: productLabel,
-                                unit = p?.unit?.ifBlank { unitDefault } ?: unitDefault,
-                                quantity = pi.quantity,
-                                onInc = { scope.launch { repo.updatePantryItem(pi.id, pi.quantity + 1) } },
-                                onDec = { if (pi.quantity > 1) scope.launch { repo.updatePantryItem(pi.id, pi.quantity - 1) } },
-                                onDelete = { scope.launch { repo.deletePantryItem(pi.id) } }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(uiState.items, key = { it.id }) { item ->
+                            PantryItemRow(
+                                name = item.product.name,
+                                quantity = item.quantity,
+                                unit = item.unit ?: "",
+                                onInc = { viewModel.incrementItem(item.id, item.quantity, item.unit) },
+                                onDec = { viewModel.decrementItem(item.id, item.quantity, item.unit) },
+                                onDelete = { viewModel.deleteItem(item.id) }
                             )
-                            HorizontalDivider()
                         }
                     }
                 }
@@ -155,37 +142,14 @@ fun PantryScreen() {
         }
     }
 
-    if (showAdd) {
-        val categoryById: Map<Long, Category> = remember(categories) { categories.associateBy { it.id } }
+    if (showAddDialog) {
         AddPantryItemDialog(
-            products = products,
-            categories = categories.map { it.name },
-            categoryNameFor = { pid ->
-                val prod = products.firstOrNull { it.id == pid }
-                prod?.categoryId?.let { cid -> categoryById[cid]?.name }
-            },
-            onDismiss = { showAdd = false },
+            products = uiState.products,
+            categories = uiState.categories,
+            onDismiss = { showAddDialog = false },
             onAdd = { productId, name, price, unit, categoryName ->
-                scope.launch {
-                    try {
-                        val finalProductId = if (productId != null) {
-                            val existing = products.firstOrNull { it.id == productId }
-                            if (!name.isNullOrBlank() || price != null || !unit.isNullOrBlank() || !categoryName.isNullOrBlank()) {
-                                val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) } ?: existing?.categoryId
-                                repo.updateProductRemote(productId, name ?: existing?.name ?: "", price ?: existing?.price ?: 0.0, unit ?: existing?.unit ?: "u", catId)
-                            }
-                            productId
-                        } else {
-                            val catId = categoryName?.takeIf { it.isNotBlank() }?.let { repo.createOrFindCategoryByName(it) }
-                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "u", catId)
-                        }
-                        repo.addOrIncrementPantryItem(finalProductId, addQuantity = 1, unit = unit ?: "u")
-                        runCatching { repo.syncPantry() }
-                        showAdd = false
-                    } catch (t: Throwable) {
-                        snack.showSnackbar(t.message ?: addItemError)
-                    }
-                }
+                viewModel.addItem(productId, name.orEmpty(), price, unit, categoryName.orEmpty())
+                showAddDialog = false
             }
         )
     }
@@ -195,8 +159,7 @@ fun PantryScreen() {
 @Composable
 private fun AddPantryItemDialog(
     products: List<Product>,
-    categories: List<String>,
-    categoryNameFor: (Long) -> String?,
+    categories: List<Category>,
     onDismiss: () -> Unit,
     onAdd: (productId: Long?, name: String?, price: Double?, unit: String?, categoryName: String?) -> Unit
 ) {
@@ -211,76 +174,89 @@ private fun AddPantryItemDialog(
         name = product.name
         priceText = if (product.price != 0.0) product.price.toString() else ""
         unit = product.unit.ifBlank { "u" }
-        category = categoryNameFor(product.id) ?: ""
+        category = categories.firstOrNull { it.id == product.categoryId }?.name ?: ""
     }
 
     val suggestions = remember(name, products) {
         val q = name.trim()
-        if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(8)
+        if (q.isBlank()) emptyList() else products.filter { it.name.contains(q, ignoreCase = true) }.take(5)
     }
-
-    // Local strings for this dialog (must be declared in the composable scope so all parts of the dialog can use them)
-    val addLabel = stringResource(id = R.string.add_label)
-    val cancelLabel = stringResource(id = R.string.cancel)
-    val addToPantryTitle = stringResource(id = R.string.add_to_pantry)
-    val productLabel = stringResource(id = R.string.product)
-    val priceLabel = stringResource(id = R.string.price_label)
-    val unitLabel = stringResource(id = R.string.unit_label)
-    val categoryLabel = stringResource(id = R.string.category_label)
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         confirmButton = {
-             TextButton(onClick = {
-                  busy = true
-                  val price = priceText.toDoubleOrNull()
-                  onAdd(selectedId, if (selectedId == null) name else name.takeIf { it.isNotBlank() }, price, unit, category.ifBlank { null })
-                  busy = false
-              }, enabled = !busy && (selectedId != null || name.isNotBlank())) { Text(addLabel) }
-          },
-        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text(cancelLabel) } },
-        title = { Text(addToPantryTitle) },
+            TextButton(
+                onClick = {
+                    busy = true
+                    val price = priceText.toDoubleOrNull()
+                    onAdd(selectedId, if (selectedId == null) name else name.takeIf { it.isNotBlank() }, price, unit, category.ifBlank { null })
+                    busy = false
+                },
+                enabled = !busy && (selectedId != null || name.isNotBlank())
+            ) { Text(stringResource(id = R.string.add_label)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { if (!busy) onDismiss() }) { Text(stringResource(id = R.string.cancel)) }
+        },
+        title = { Text(stringResource(id = R.string.add_to_pantry)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { v ->
-                        name = v
-                        val match = products.firstOrNull { it.name.equals(v, ignoreCase = true) }
-                        selectedId = match?.id
-                        if (match != null) prefill(match)
+                    onValueChange = {
+                        name = it
+                        suggestions.firstOrNull { s -> s.name.equals(it, ignoreCase = true) }?.let { product ->
+                            selectedId = product.id
+                            prefill(product)
+                        }
                     },
-                    label = { Text(productLabel) },
+                    label = { Text(stringResource(id = R.string.product)) },
                     singleLine = true
                 )
-                if (suggestions.isNotEmpty()) {
-                    suggestions.forEach { s ->
-                        TextButton(onClick = { selectedId = s.id; prefill(s); name = s.name }) { Text(s.name) }
+                suggestions.forEach { suggestion ->
+                    TextButton(onClick = { selectedId = suggestion.id; prefill(suggestion); name = suggestion.name }) {
+                        Text(suggestion.name)
                     }
                 }
-                OutlinedTextField(value = priceText, onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text(priceLabel) }, singleLine = true)
-                OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(unitLabel) }, singleLine = true)
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text(categoryLabel) }, singleLine = true)
+                OutlinedTextField(
+                    value = priceText,
+                    onValueChange = { priceText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text(stringResource(id = R.string.price_label)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text(stringResource(id = R.string.unit_label)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text(stringResource(id = R.string.category_label)) },
+                    singleLine = true
+                )
             }
         }
     )
 }
 
 @Composable
-private fun PantryRow(
+private fun PantryItemRow(
     name: String,
     unit: String,
-    quantity: Int,
+    quantity: Double,
     onInc: () -> Unit,
     onDec: () -> Unit,
     onDelete: () -> Unit
 ) {
     ListItem(
         headlineContent = { Text(name) },
+        supportingContent = { Text("${quantity.roundToInt()} $unit") },
         trailingContent = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDec) { Text("-") }
-                Text(quantity.toString())
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDec, enabled = quantity > 1) { Text("-") }
+                Text(quantity.roundToInt().toString())
                 TextButton(onClick = onInc) { Text("+") }
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = null) }
             }

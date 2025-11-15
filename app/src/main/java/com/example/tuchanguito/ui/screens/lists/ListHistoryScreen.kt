@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,9 +35,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
-import com.example.tuchanguito.data.model.ShoppingList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,17 +46,15 @@ fun ListHistoryScreen(
     onOpenList: (Long) -> Unit
 ) {
     val context = LocalContext.current
-    val repo = remember { AppRepository.get(context) }
+    val app = context.applicationContext as MyApplication
+    val viewModel: ListHistoryViewModel = viewModel(
+        factory = ListHistoryViewModelFactory(app.shoppingListsRepository)
+    )
+    val uiState by viewModel.uiState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
 
-    val historyLists by repo.activeLists().collectAsState(initial = emptyList())
-    val loadingError = stringResource(id = R.string.loading_user_error)
-
-    LaunchedEffect(Unit) {
-        val result = repo.refreshLists()
-        if (result.isFailure) {
-            snackbarHost.showSnackbar(result.exceptionOrNull()?.message ?: loadingError)
-        }
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { snackbarHost.showSnackbar(it) }
     }
 
     Scaffold(
@@ -66,10 +63,7 @@ fun ListHistoryScreen(
                 title = { Text(stringResource(id = R.string.list_history_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(id = R.string.back)
-                        )
+                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -81,29 +75,35 @@ fun ListHistoryScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHost) }
     ) { padding ->
-        if (historyLists.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(id = R.string.list_history_empty),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+        when {
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
-                items(historyLists, key = { it.id }) { list ->
-                    HistoryListCard(list = list, onOpenList = onOpenList)
+            uiState.items.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(stringResource(id = R.string.list_history_empty), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(uiState.items, key = { it.id }) { list ->
+                        HistoryListCard(title = list.name, onOpenList = { onOpenList(list.id) })
+                    }
                 }
             }
         }
@@ -112,27 +112,20 @@ fun ListHistoryScreen(
 
 @Composable
 private fun HistoryListCard(
-    list: ShoppingList,
-    onOpenList: (Long) -> Unit
+    title: String,
+    onOpenList: () -> Unit
 ) {
     androidx.compose.material3.ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = list.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(id = R.string.list_history_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { onOpenList(list.id) },
-                modifier = Modifier.align(Alignment.End)
-            ) {
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onOpenList, modifier = Modifier.align(Alignment.End)) {
                 Text(text = stringResource(id = R.string.open_list))
             }
         }

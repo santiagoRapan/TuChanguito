@@ -53,7 +53,12 @@ class ShoppingListsRemoteDataSource(
 
     suspend fun resetShoppingList(id: Long): ShoppingListDto = api.resetList(id)
 
-    suspend fun moveShoppingListToPantry(id: Long): ShoppingListDto = api.moveListToPantry(id)
+    suspend fun moveShoppingListToPantry(id: Long) {
+        val response = api.moveListToPantry(id)
+        if (!response.isSuccessful) {
+            throw retrofit2.HttpException(response)
+        }
+    }
 
     suspend fun shareShoppingList(id: Long, email: String): ShoppingListDto =
         api.shareList(id, ShareListRequestDto(email))
@@ -62,7 +67,14 @@ class ShoppingListsRemoteDataSource(
 
     suspend fun revokeShare(id: Long, userId: Long) = api.revokeShare(id, userId)
 
-    suspend fun getItems(listId: Long): List<ListItemDto> = api.getItems(listId)
+    suspend fun getItems(
+        listId: Long,
+        page: Int? = null,
+        perPage: Int? = null,
+        sortBy: String? = null,
+        order: String? = null
+    ): PaginatedResponseDto<ListItemDto> =
+        api.getItems(listId, page, perPage, sortBy, order)
 
     suspend fun addItem(
         listId: Long,
@@ -70,7 +82,15 @@ class ShoppingListsRemoteDataSource(
         quantity: Double = 1.0,
         unit: String = "u",
         metadata: JsonObject? = null
-    ): ListItemDto = api.addItem(listId, CreateListItemRequestDto(product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId), quantity = quantity, unit = unit, metadata = metadata))
+    ): ListItemDto = api.addItem(
+        listId,
+        CreateListItemRequestDto(
+            product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId),
+            quantity = quantity,
+            unit = unit,
+            metadata = metadata
+        )
+    ).item
 
     suspend fun updateItem(
         listId: Long,

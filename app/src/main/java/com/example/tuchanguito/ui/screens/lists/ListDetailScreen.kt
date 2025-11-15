@@ -1,21 +1,65 @@
 package com.example.tuchanguito.ui.screens.lists
 
-import android.content.Intent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -26,61 +70,100 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
-import com.example.tuchanguito.data.AppRepository
 import com.example.tuchanguito.data.model.Category
-import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.Product
-import com.example.tuchanguito.network.dto.ListItemDTO
-import kotlinx.coroutines.launch
-import retrofit2.HttpException
-import java.net.SocketTimeoutException
+import com.example.tuchanguito.data.network.model.ListItemDto
+import com.example.tuchanguito.data.network.model.ProductDto
+import com.example.tuchanguito.data.network.model.ShoppingListDto
+import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ItemAdded
+import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ListFinalized
+import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ShowSnackbar
+import com.example.tuchanguito.ui.screens.lists.ListDetailViewModel
+import com.example.tuchanguito.ui.screens.lists.ListDetailViewModelFactory
+import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
+import com.example.tuchanguito.ui.screens.lists.ShareUiState
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val context = LocalContext.current
-    val repo = remember { AppRepository.get(context) }
-    val scope = rememberCoroutineScope()
+    val app = context.applicationContext as MyApplication
+    val viewModel: ListDetailViewModel = viewModel(
+        factory = ListDetailViewModelFactory(
+            listId = listId,
+            shoppingListsRepository = app.shoppingListsRepository,
+            productRepository = app.productRepository,
+            categoryRepository = app.categoryRepository,
+            pantryRepository = app.pantryRepository
+        )
+    )
+
+    val uiState by viewModel.uiState.collectAsState()
+    val shareState by viewModel.shareState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
 
-    val list by repo.listById(listId).collectAsState(initial = null)
-    val items by repo.itemsForList(listId).collectAsState(initial = emptyList())
-    val products by repo.products().collectAsState(initial = emptyList())
-    val categories by repo.categories().collectAsState(initial = emptyList())
-
-    // State for dialogs
     var showAddProductDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showFinalizeDialog by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
+    var addDialogBusy by remember { mutableStateOf(false) }
 
-    // Data maps for efficient lookup
-    val productMap = remember(products) { products.associateBy { it.id } }
-    val categoryMap = remember(categories) { categories.associateBy { it.id } }
-
-    val itemsGroupedByCategory by remember(items, productMap, categoryMap) {
-        derivedStateOf {
-            items.mapNotNull { item -> productMap[item.productId]?.let { product -> Pair(item, product) } }
-                .groupBy { (_, product) -> categoryMap[product.categoryId] ?: Category(id = -1, name = "Sin Categoría") }
-                .toSortedMap(compareBy { it.name })
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is ShowSnackbar -> {
+                    if (showAddProductDialog) addDialogBusy = false
+                    snackbarHost.showSnackbar(event.message)
+                }
+                ItemAdded -> {
+                    addDialogBusy = false
+                    showAddProductDialog = false
+                    snackbarHost.showSnackbar("Producto agregado")
+                }
+                ListFinalized -> {
+                    showFinalizeDialog = false
+                    onClose()
+                }
+            }
         }
     }
 
-    // Initial data sync
-    LaunchedEffect(listId) {
-        busy = true
-        repo.loadListIntoLocal(listId)
-        repo.syncCatalog()
-        repo.syncListItems(listId)
-        busy = false
+    val groupedItems = remember(uiState.items) {
+        uiState.items.groupBy { it.product.category?.name ?: "Sin categoria" }
+    }
+    val sortedCategories = remember(groupedItems) { groupedItems.keys.sortedBy { it.lowercase() } }
+    val totalCost by remember(uiState.items) {
+        derivedStateOf { uiState.items.sumOf { it.quantity * it.product.priceFromMetadata() } }
+    }
+    val categoryLookup = remember(uiState.products, uiState.categories) {
+        uiState.products.associate { product ->
+            product.id to uiState.categories.firstOrNull { it.id == product.categoryId }?.name
+        }
     }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(list?.title ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Default.ArrowBack, contentDescription = stringResource(id = R.string.back)) } },
+                title = {
+                    Text(
+                        uiState.list?.name ?: "",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(id = R.string.back))
+                    }
+                },
                 actions = {
                     IconButton(onClick = { showShareDialog = true }) {
                         Icon(Icons.Default.Share, contentDescription = stringResource(id = R.string.share_label))
@@ -94,63 +177,57 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 )
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHost) },
-        contentWindowInsets = WindowInsets.systemBars
+        snackbarHost = { SnackbarHost(hostState = snackbarHost) }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
-            if (busy && items.isEmpty()) {
+            if (uiState.isLoading && uiState.items.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f), // SCROLL FIX
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    itemsGroupedByCategory.forEach { (category, itemsWithProducts) ->
-                        item(key = category.id) {
-                            Text(
-                                text = category.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
-                            )
-                        }
-                        items(itemsWithProducts, key = { it.first.id }) { (item, product) ->
-                            ListItemCard(
-                                item = item,
-                                product = product,
-                                onQuantityChange = { newQuantity ->
-                                    scope.launch {
-                                        try {
-                                            repo.updateItemQuantityRemote(listId, item.id, product.id, newQuantity, product.unit)
-                                        } catch (t: Throwable) { snackbarHost.showSnackbar("Error actualizando cantidad") }
-                                    }
-                                },
-                                onDelete = {
-                                    scope.launch {
-                                        try {
-                                            repo.deleteItemRemote(listId, item.id)
-                                        } catch (t: Throwable) { snackbarHost.showSnackbar("Error eliminando producto") }
-                                    }
-                                },
-                                onToggleAcquired = { purchased ->
-                                    scope.launch {
-                                        try {
-                                            repo.toggleItemPurchasedRemote(listId, item.id, purchased)
-                                        } catch (t: Throwable) { snackbarHost.showSnackbar("Error actualizando estado") }
-                                    }
-                                }
-                            )
+                    sortedCategories.forEach { categoryName ->
+                        val itemsInCategory = groupedItems[categoryName].orEmpty()
+                        if (itemsInCategory.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = categoryName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            items(itemsInCategory, key = { it.id }) { item ->
+                                ListItemCard(
+                                    item = item,
+                                    onQuantityChange = { newQuantity ->
+                                        viewModel.updateItemQuantity(
+                                            item.id,
+                                            item.product.id,
+                                            newQuantity,
+                                            item.unit ?: item.product.unitFromMetadata()
+                                        )
+                                    },
+                                    onDelete = { viewModel.deleteItem(item.id) },
+                                    onToggleAcquired = { purchased -> viewModel.toggleItem(item.id, purchased) }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            val totalCost = items.sumOf { (productMap[it.productId]?.price ?: 0.0) * it.quantity }
             Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -161,7 +238,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         Text("$%.2f".format(totalCost), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
 
-                    Button(onClick = { showFinalizeDialog = true }) {
+                    Button(onClick = { showFinalizeDialog = true }, enabled = !uiState.isProcessing) {
                         Text(stringResource(id = R.string.finalize))
                     }
 
@@ -182,100 +259,76 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     if (showAddProductDialog) {
         AddItemDialog(
-            products = products,
-            categories = categories,
-            onDismiss = { showAddProductDialog = false },
+            products = uiState.products,
+            categories = uiState.categories,
+            isSubmitting = addDialogBusy,
+            onDismiss = { if (!addDialogBusy) showAddProductDialog = false },
             onAdd = { productId, name, price, unit, categoryName ->
-                scope.launch {
-                    try {
-                        // Crash fix: ensure categoryName is not blank
-                        if (categoryName.isNullOrBlank()) {
-                            snackbarHost.showSnackbar("La categoría es obligatoria")
-                            return@launch
-                        }
-                        val chosenProductId: Long = productId ?: run {
-                            val catId = repo.createOrFindCategoryByName(categoryName)
-                            repo.createProductRemote(name!!.trim(), price ?: 0.0, unit ?: "", catId)
-                        }
-                        repo.addItemRemote(listId, chosenProductId, 1, unit ?: "u")
-                        repo.syncListItems(listId)
-                        showAddProductDialog = false
-                    } catch (t: Throwable) {
-                        snackbarHost.showSnackbar(t.message ?: "Error al añadir producto")
-                    }
-                }
+                addDialogBusy = true
+                viewModel.addItem(productId, name, price, unit, categoryName)
             },
-            categoryNameFor = { pid -> productMap[pid]?.categoryId?.let { categoryMap[it]?.name } }
+            categoryNameFor = { productId -> categoryLookup[productId] }
         )
     }
-    
-    var shareBusy by remember { mutableStateOf(false) }
-    var shareMessage by remember { mutableStateOf<String?>(null) }
-    var shareIsError by remember { mutableStateOf(false) }
 
     if (showShareDialog) {
         ShareListDialog(
-            busy = shareBusy,
-            message = shareMessage,
-            isError = shareIsError,
-            onDismiss = { showShareDialog = false; shareMessage = null; shareIsError = false },
-            onShare = { email ->
-                shareBusy = true
-                shareMessage = null
-                shareIsError = false
-                scope.launch {
-                    try {
-                        repo.shareListRemote(listId, email)
-                        shareMessage = "Lista compartida con éxito"
-                        shareIsError = false
-                    } catch (t: Throwable) {
-                        shareMessage = t.message ?: "Error al compartir"
-                        shareIsError = true
-                    } finally {
-                        shareBusy = false
-                    }
-                }
-            }
+            state = shareState,
+            onDismiss = {
+                showShareDialog = false
+                viewModel.resetShareState()
+            },
+            onShare = { email -> viewModel.shareList(email) }
         )
     }
 
     if (showFinalizeDialog) {
         FinalizeDialog(
             listId = listId,
-            itemsProvider = { repo.fetchListItemsRemote(listId) },
-            repo = repo,
-            onDismiss = { showFinalizeDialog = false },
-            onDone = { showFinalizeDialog = false; onClose() }
+            isProcessing = uiState.isProcessing,
+            availableLists = uiState.availableLists,
+            onDismiss = { if (!uiState.isProcessing) showFinalizeDialog = false },
+            onRequestLists = { viewModel.loadAvailableLists() },
+            onFinalize = { options -> viewModel.finalizeList(options) }
         )
     }
 }
 
 @Composable
 fun ListItemCard(
-    item: ListItem, product: Product, onQuantityChange: (Int) -> Unit,
-    onDelete: () -> Unit, onToggleAcquired: (Boolean) -> Unit
+    item: ListItemDto,
+    onQuantityChange: (Double) -> Unit,
+    onDelete: () -> Unit,
+    onToggleAcquired: (Boolean) -> Unit
 ) {
+    val product = item.product
+    val formattedQuantity = remember(item.quantity) {
+        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else "%.2f".format(item.quantity)
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Checkbox(checked = item.acquired, onCheckedChange = onToggleAcquired)
+            Checkbox(checked = item.purchased, onCheckedChange = onToggleAcquired)
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = product.name,
                     fontWeight = FontWeight.Bold,
-                    textDecoration = if (item.acquired) TextDecoration.LineThrough else TextDecoration.None
+                    textDecoration = if (item.purchased) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Text(
-                    text = "$%.2f c/u".format(product.price),
-                    style = MaterialTheme.typography.bodySmall, color = Color.Gray
+                    text = "$%.2f c/u".format(product.priceFromMetadata()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
                 )
             }
             Spacer(Modifier.width(8.dp))
@@ -283,7 +336,7 @@ fun ListItemCard(
                 IconButton(onClick = { if (item.quantity > 1) onQuantityChange(item.quantity - 1) else onDelete() }) {
                     Icon(Icons.Default.Remove, contentDescription = "Decrementar")
                 }
-                Text("${item.quantity}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 IconButton(onClick = { onQuantityChange(item.quantity + 1) }) {
                     Icon(Icons.Default.Add, contentDescription = "Incrementar")
                 }
@@ -300,8 +353,9 @@ fun ListItemCard(
 private fun AddItemDialog(
     products: List<Product>,
     categories: List<Category>,
+    isSubmitting: Boolean,
     onDismiss: () -> Unit,
-    onAdd: (productId: Long?, name: String?, price: Double?, unit: String?, categoryName: String?) -> Unit,
+    onAdd: (productId: Long?, name: String, price: Double?, unit: String?, categoryName: String) -> Unit,
     categoryNameFor: (Long) -> String?
 ) {
     var name by remember { mutableStateOf("") }
@@ -309,7 +363,6 @@ private fun AddItemDialog(
     var priceText by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("") }
     var categoryText by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
 
     var productExpanded by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
@@ -323,101 +376,108 @@ private fun AddItemDialog(
     }
 
     AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
         confirmButton = {
             TextButton(
-                onClick = {
-                    busy = true
-                    onAdd(selectedId, name, priceText.toDoubleOrNull(), unit, categoryText)
-                },
-                enabled = !busy && name.trim().isNotBlank() && categoryText.trim().isNotBlank()
+                onClick = { onAdd(selectedId, name, priceText.toDoubleOrNull(), unit, categoryText) },
+                enabled = !isSubmitting && name.trim().isNotBlank() && categoryText.trim().isNotBlank()
             ) { Text(stringResource(id = R.string.add)) }
         },
-        dismissButton = { TextButton(onClick = { if (!busy) onDismiss() }) { Text(stringResource(id = R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = { if (!isSubmitting) onDismiss() }) { Text(stringResource(id = R.string.cancel)) } },
         title = { Text(stringResource(id = R.string.add_product_to_list)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExposedDropdownMenuBox(
-                    expanded = productExpanded,
-                    onExpandedChange = { productExpanded = !productExpanded }
-                ) {
+                Box {
                     OutlinedTextField(
                         value = name,
-                        onValueChange = { 
+                        onValueChange = {
                             name = it
-                            productExpanded = it.isNotBlank() // UX Fix
+                            productExpanded = it.isNotBlank()
                             selectedId = null
                         },
-                        label = { Text(stringResource(id = R.string.product)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        label = { Text("Producto") },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.clickable { productExpanded = !productExpanded }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSubmitting
                     )
-                    val filteredProducts = products.filter { it.name.contains(name, ignoreCase = true) && name.isNotBlank() }
-                    if (filteredProducts.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = productExpanded,
-                            onDismissRequest = { productExpanded = false }
-                        ) {
-                            filteredProducts.forEach { product ->
-                                DropdownMenuItem(
-                                    text = { Text(product.name) },
-                                    onClick = {
-                                        prefillFrom(product)
-                                        productExpanded = false
-                                    }
-                                )
-                            }
+                    val filteredProducts = products.filter { product ->
+                        product.name.contains(name, ignoreCase = true) && name.isNotBlank()
+                    }
+                    DropdownMenu(
+                        expanded = productExpanded && filteredProducts.isNotEmpty(),
+                        onDismissRequest = { productExpanded = false }
+                    ) {
+                        filteredProducts.forEach { product ->
+                            DropdownMenuItem(
+                                text = { Text(product.name) },
+                                onClick = {
+                                    prefillFrom(product)
+                                    productExpanded = false
+                                }
+                            )
                         }
                     }
                 }
-                
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = priceText,
-                        onValueChange = { priceText = it.filter { c -> c.isDigit() || c == '.' } },
+                        onValueChange = { value -> priceText = value.filter { it.isDigit() || it == '.' } },
                         label = { Text(stringResource(id = R.string.price_label)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSubmitting
                     )
                     OutlinedTextField(
                         value = unit,
                         onValueChange = { unit = it },
                         label = { Text(stringResource(id = R.string.unit_label)) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSubmitting
                     )
                 }
 
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = !categoryExpanded }
-                ) {
+                Box {
                     OutlinedTextField(
                         value = categoryText,
-                        onValueChange = { 
+                        onValueChange = {
                             categoryText = it
-                            categoryExpanded = it.isNotBlank() // UX Fix
+                            categoryExpanded = it.isNotBlank()
                         },
                         label = { Text(stringResource(id = R.string.category_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.clickable { categoryExpanded = !categoryExpanded }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSubmitting
                     )
-                    val filteredOptions = categories.filter { it.name.contains(categoryText, ignoreCase = true) && categoryText.isNotBlank() }
-                    if (filteredOptions.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = categoryExpanded,
-                            onDismissRequest = { categoryExpanded = false }
-                        ) {
-                            filteredOptions.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category.name) },
-                                    onClick = {
-                                        categoryText = category.name
-                                        categoryExpanded = false
-                                    }
-                                )
-                            }
+                    val filteredCategories = categories.filter { option ->
+                        option.name.contains(categoryText, ignoreCase = true) && categoryText.isNotBlank()
+                    }
+                    DropdownMenu(
+                        expanded = categoryExpanded && filteredCategories.isNotEmpty(),
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        filteredCategories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    categoryText = category.name
+                                    categoryExpanded = false
+                                }
+                            )
                         }
                     }
                 }
@@ -429,9 +489,7 @@ private fun AddItemDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShareListDialog(
-    busy: Boolean,
-    message: String?,
-    isError: Boolean,
+    state: ShareUiState,
     onDismiss: () -> Unit,
     onShare: (String) -> Unit
 ) {
@@ -440,35 +498,35 @@ private fun ShareListDialog(
     val focusManager = LocalFocusManager.current
 
     AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = { if (!state.isBusy) onDismiss() },
         title = { Text(stringResource(id = R.string.share_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (state.isBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(stringResource(id = R.string.share_enter_email))
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text(stringResource(id = R.string.email_label)) },
-                    singleLine = true, enabled = !busy,
+                    singleLine = true,
+                    enabled = !state.isBusy,
                     isError = !isValid && email.isNotBlank(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
-                if (message != null) {
-                    Text(message, color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                state.message?.let {
+                    Text(
+                        it,
+                        color = if (state.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { focusManager.clearFocus(); onShare(email.trim()) }, enabled = !busy && isValid) {
+            TextButton(onClick = { focusManager.clearFocus(); onShare(email.trim()) }, enabled = !state.isBusy && isValid) {
                 Text(stringResource(id = R.string.share_button))
             }
         },
-        dismissButton = {
-            TextButton(onClick = { if (!busy) onDismiss() }) {
-                Text(stringResource(id = R.string.cancel))
-            }
-        }
+        dismissButton = { TextButton(onClick = { if (!state.isBusy) onDismiss() }) { Text(stringResource(id = R.string.cancel)) } }
     )
 }
 
@@ -476,60 +534,40 @@ private fun ShareListDialog(
 @Composable
 private fun FinalizeDialog(
     listId: Long,
-    itemsProvider: suspend () -> List<ListItemDTO>,
-    repo: AppRepository,
+    isProcessing: Boolean,
+    availableLists: List<ShoppingListDto>,
     onDismiss: () -> Unit,
-    onDone: () -> Unit
+    onRequestLists: () -> Unit,
+    onFinalize: (ListFinalizeOptions) -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
     var includePurchasedToPantry by remember { mutableStateOf(true) }
     var moveNotPurchased by remember { mutableStateOf(true) }
-    val lists by repo.activeLists().collectAsState(initial = emptyList())
     var creatingNew by remember { mutableStateOf(false) }
     var newListName by remember { mutableStateOf("") }
     var selectedListId by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(Unit) { repo.refreshLists() }
+    LaunchedEffect(Unit) { onRequestLists() }
 
     AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = { if (!isProcessing) onDismiss() },
         confirmButton = {
             TextButton(
-                enabled = !busy,
+                enabled = !isProcessing,
                 onClick = {
-                    busy = true
-                    scope.launch {
-                        val items = itemsProvider()
-                        val purchased = items.filter { it.purchased }
-                        val notPurchased = items.filterNot { it.purchased }
-
-                        if (includePurchasedToPantry && purchased.isNotEmpty()) {
-                            purchased.forEach { repo.addOrIncrementPantryItem(it.product.id ?: 0, it.quantity.toInt(), it.unit) }
-                            repo.syncPantry()
-                        }
-
-                        if (moveNotPurchased && notPurchased.isNotEmpty()) {
-                            val targetId = if (creatingNew) {
-                                newListName.trim().takeIf { it.isNotEmpty() }?.let { repo.createList(it) }
-                            } else selectedListId
-
-                            if (targetId != null) {
-                                notPurchased.forEach { repo.addItemRemote(targetId, it.product.id ?: 0, it.quantity.toInt(), it.unit) }
-                                repo.syncListItems(targetId)
-                            }
-                        }
-
-                        repo.deleteListRemote(listId)
-                        repo.refreshLists()
-
-                        busy = false
-                        onDone()
-                    }
+                    onFinalize(
+                        ListFinalizeOptions(
+                            includePurchasedToPantry = includePurchasedToPantry,
+                            moveNotPurchased = moveNotPurchased,
+                            targetListId = selectedListId,
+                            newListName = newListName.takeIf { creatingNew }
+                        )
+                    )
                 }
-            ) { Text(if (busy) stringResource(id = R.string.processing) else stringResource(id = R.string.finalize)) }
+            ) {
+                Text(if (isProcessing) stringResource(id = R.string.processing) else stringResource(id = R.string.finalize))
+            }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(id = R.string.cancel)) } },
+        dismissButton = { TextButton(enabled = !isProcessing, onClick = onDismiss) { Text(stringResource(id = R.string.cancel)) } },
         title = { Text(stringResource(id = R.string.finalize)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -555,20 +593,26 @@ private fun FinalizeDialog(
                             onValueChange = { newListName = it },
                             label = { Text(stringResource(id = R.string.new_list_name_label)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isProcessing
                         )
                     } else {
                         Column {
                             Text(stringResource(id = R.string.select_destination))
-                            val options = lists.filter { it.id != listId }
+                            val options = availableLists.filter { it.id != listId }
                             if (options.isEmpty()) {
                                 Text(stringResource(id = R.string.no_lists_available))
                             } else {
-                                options.forEach { l ->
-                                    val selected = selectedListId == l.id
-                                    Row(modifier = Modifier.fillMaxWidth().clickable { selectedListId = l.id }, verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = selected, onClick = { selectedListId = l.id })
-                                        Text(l.title)
+                                options.forEach { list ->
+                                    val selected = selectedListId == list.id
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedListId = list.id },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(selected = selected, onClick = { selectedListId = list.id })
+                                        Text(list.name)
                                     }
                                 }
                             }
@@ -579,3 +623,9 @@ private fun FinalizeDialog(
         }
     )
 }
+
+private fun ProductDto.priceFromMetadata(): Double =
+    metadata?.jsonObject?.get("price")?.jsonPrimitive?.doubleOrNull ?: 0.0
+
+private fun ProductDto.unitFromMetadata(): String =
+    metadata?.jsonObject?.get("unit")?.jsonPrimitive?.contentOrNull ?: "u"

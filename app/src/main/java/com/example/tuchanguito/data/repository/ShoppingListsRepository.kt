@@ -47,7 +47,7 @@ class ShoppingListsRepository(
 
     suspend fun resetList(id: Long): ShoppingListDto = remote.resetShoppingList(id)
 
-    suspend fun moveListToPantry(id: Long): ShoppingListDto = remote.moveShoppingListToPantry(id)
+    suspend fun moveListToPantry(id: Long) = remote.moveShoppingListToPantry(id)
 
     suspend fun shareList(id: Long, email: String): ShoppingListDto = remote.shareShoppingList(id, email)
 
@@ -55,7 +55,7 @@ class ShoppingListsRepository(
 
     suspend fun revokeShare(id: Long, userId: Long) = remote.revokeShare(id, userId)
 
-    suspend fun getItems(listId: Long): List<ListItemDto> = remote.getItems(listId)
+    suspend fun getItems(listId: Long): List<ListItemDto> = remote.getItems(listId).data
 
     suspend fun addItem(
         listId: Long,

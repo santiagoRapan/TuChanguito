@@ -1,9 +1,16 @@
 package com.example.tuchanguito.data.repository
 
-import com.example.tuchanguito.data.network.ProductRemoteDataSource
 import com.example.tuchanguito.data.model.Product
+import com.example.tuchanguito.data.network.ProductRemoteDataSource
 import com.example.tuchanguito.data.network.model.ProductDto
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import retrofit2.HttpException
 
 class ProductRepository(
     private val remoteDataSource: ProductRemoteDataSource
@@ -21,19 +28,59 @@ class ProductRepository(
 
     suspend fun getProduct(id: Long): Product = remoteDataSource.getProduct(id).asModel()
 
-    suspend fun createProduct(name: String, categoryId: Long? = null, metadata: JsonElement? = null): Product =
-        remoteDataSource.createProduct(name, categoryId, metadata).asModel()
+    suspend fun createProduct(
+        name: String,
+        categoryId: Long? = null,
+        price: Double? = null,
+        unit: String? = null
+    ): Product {
+        return try {
+            remoteDataSource.createProduct(
+                name,
+                categoryId,
+                buildMetadata(price, unit)
+            ).asModel()
+        } catch (t: Throwable) {
+            if (t is HttpException && t.code() == 409) {
+                findProductByName(name)
+                    ?: throw IllegalStateException("El producto ya existe pero no se pudo recuperar", t)
+            } else {
+                throw t
+            }
+        }
+    }
 
-    suspend fun updateProduct(id: Long, name: String, categoryId: Long? = null, metadata: JsonElement? = null): Product =
-        remoteDataSource.updateProduct(id, name, categoryId, metadata).asModel()
+    suspend fun updateProduct(
+        id: Long,
+        name: String,
+        categoryId: Long? = null,
+        price: Double? = null,
+        unit: String? = null
+    ): Product = remoteDataSource.updateProduct(
+        id,
+        name,
+        categoryId,
+        buildMetadata(price, unit)
+    ).asModel()
 
     suspend fun deleteProduct(id: Long) = remoteDataSource.deleteProduct(id)
+
+    suspend fun findProductByName(name: String): Product? =
+        remoteDataSource.getProducts(name = name, perPage = 1).data.firstOrNull()?.asModel()
 
     private fun ProductDto.asModel(): Product = Product(
         id = id,
         name = name,
-        price = 0.0,
+        price = metadata?.jsonObject?.get("price")?.jsonPrimitive?.doubleOrNull ?: 0.0,
         categoryId = category?.id,
-        unit = ""
+        unit = metadata?.jsonObject?.get("unit")?.jsonPrimitive?.contentOrNull ?: ""
     )
+
+    private fun buildMetadata(price: Double?, unit: String?): JsonElement? {
+        if (price == null && unit.isNullOrBlank()) return null
+        return buildJsonObject {
+            price?.let { put("price", it) }
+            unit?.takeIf { it.isNotBlank() }?.let { put("unit", it) }
+        }
+    }
 }

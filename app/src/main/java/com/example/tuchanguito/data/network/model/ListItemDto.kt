@@ -5,6 +5,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
+data class ListItemEnvelopeDto(
+    val item: ListItemDto
+)
+
+@Serializable
 data class ListItemDto(
     val id: Long,
     val quantity: Double,
@@ -20,8 +25,8 @@ data class ListItemDto(
 @Serializable
 data class CreateListItemRequestDto(
     @SerialName("product") val product: ProductReferenceDto,
-    val quantity: Double = 1.0,
-    val unit: String = "u",
+    val quantity: Double,
+    val unit: String,
     val metadata: JsonObject? = null
 )
 

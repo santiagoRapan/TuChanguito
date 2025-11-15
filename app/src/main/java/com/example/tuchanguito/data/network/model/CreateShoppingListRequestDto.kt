@@ -1,5 +1,6 @@
 package com.example.tuchanguito.data.network.model
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -7,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 data class CreateShoppingListRequestDto(
     val name: String,
     val description: String,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val recurring: Boolean = false,
     val metadata: JsonObject? = null
 )

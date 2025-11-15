@@ -182,6 +182,8 @@
     <string name="rename_list_content_description">Rename list</string>
     <string name="delete_list_content_description">Delete list</string>
     <string name="mark_as_recurrent">Mark as recurrent</string>
+    <string name="active_lists_title">Active lists</string>
+    <string name="recurring_lists_title">Recurring lists</string>
     <string name="open_list">Open</string>
     <string name="view_list_history">Ver historial</string>
     <string name="list_history_title">Historial de listas</string>

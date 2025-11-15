@@ -37,11 +37,14 @@ fun ListsScreen(
 
     // State
     val lists by listsRepository.observeLists().collectAsState(initial = emptyList())
+    val regularLists = remember(lists) { lists.filterNot { it.recurring } }
+    val recurringLists = remember(lists) { lists.filter { it.recurring } }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var newName by rememberSaveable { mutableStateOf("") }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editName by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var togglingId by remember { mutableStateOf<Long?>(null) }
 
     // Strings from resources
     val listAlreadyExists = stringResource(id = R.string.list_already_exists)
@@ -49,6 +52,7 @@ fun ListsScreen(
     val deleteErrorLabel = stringResource(id = R.string.delete_error)
     val createErrorLabel = stringResource(id = R.string.create_error)
     val renameErrorLabel = stringResource(id = R.string.rename_error)
+    val genericErrorLabel = stringResource(id = R.string.generic_error)
 
     LaunchedEffect(Unit) {
         busy = true
@@ -113,7 +117,7 @@ fun ListsScreen(
                     CircularProgressIndicator()
                 }
             } else if (lists.isEmpty()) {
-                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.no_lists_found))
                 }
             } else {
@@ -121,25 +125,83 @@ fun ListsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(lists, key = { it.id }) { list ->
-                        ShoppingListCard(
-                            list = list,
-                            onOpen = { onOpenList(list.id) },
-                            onRename = { editId = list.id; editName = list.title },
-                            onDelete = {
-                                scope.launch {
-                                    busy = true
-                                    try {
-                                        listsRepository.deleteList(list.id)
-                                    } catch (t: Throwable) {
-                                        snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
-                                    } finally {
-                                        busy = false
+                    if (regularLists.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(id = R.string.active_lists_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        items(regularLists, key = { it.id }) { list ->
+                            ShoppingListCard(
+                                list = list,
+                                onOpen = { onOpenList(list.id) },
+                                onRename = { editId = list.id; editName = list.title },
+                                onDelete = {
+                                    scope.launch {
+                                        busy = true
+                                        try {
+                                            listsRepository.deleteList(list.id)
+                                        } catch (t: Throwable) {
+                                            snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
+                                        } finally {
+                                            busy = false
+                                        }
                                     }
-                                }
-                            },
-                            busy = busy
-                        )
+                                },
+                                onToggleRecurring = { checked ->
+                                    scope.launch {
+                                        togglingId = list.id
+                                        runCatching { listsRepository.setRecurring(list.id, checked) }
+                                            .onFailure { snackbarHost.showSnackbar(it.message ?: genericErrorLabel) }
+                                        togglingId = null
+                                    }
+                                },
+                                toggleEnabled = togglingId != list.id && !busy,
+                                busy = busy
+                            )
+                        }
+                    }
+                    if (recurringLists.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(id = R.string.recurring_lists_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        items(recurringLists, key = { it.id }) { list ->
+                            ShoppingListCard(
+                                list = list,
+                                onOpen = { onOpenList(list.id) },
+                                onRename = { editId = list.id; editName = list.title },
+                                onDelete = {
+                                    scope.launch {
+                                        busy = true
+                                        try {
+                                            listsRepository.deleteList(list.id)
+                                        } catch (t: Throwable) {
+                                            snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
+                                        } finally {
+                                            busy = false
+                                        }
+                                    }
+                                },
+                                onToggleRecurring = { checked ->
+                                    scope.launch {
+                                        togglingId = list.id
+                                        runCatching { listsRepository.setRecurring(list.id, checked) }
+                                            .onFailure { snackbarHost.showSnackbar(it.message ?: genericErrorLabel) }
+                                        togglingId = null
+                                    }
+                                },
+                                toggleEnabled = togglingId != list.id && !busy,
+                                busy = busy
+                            )
+                        }
                     }
                 }
             }
@@ -209,10 +271,10 @@ fun ShoppingListCard(
     onOpen: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onToggleRecurring: (Boolean) -> Unit,
+    toggleEnabled: Boolean,
     busy: Boolean
 ) {
-    var isRecurrent by rememberSaveable { mutableStateOf(false) } // This is local state for now
-
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -238,8 +300,9 @@ fun ShoppingListCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(
-                        checked = isRecurrent,
-                        onCheckedChange = { isRecurrent = it },
+                        checked = list.recurring,
+                        onCheckedChange = { onToggleRecurring(it) },
+                        enabled = toggleEnabled
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.mark_as_recurrent))

@@ -41,6 +41,11 @@ class ShoppingListsLocalRepository(
         shoppingListDao.deleteById(id)
     }
 
+    suspend fun setRecurring(id: Long, recurring: Boolean) {
+        val updated = remote.updateList(id, recurring = recurring)
+        shoppingListDao.upsert(updated.toEntity())
+    }
+
     private suspend fun existsListWithName(name: String): Boolean = runCatching {
         remote.getLists(name = name, owner = true, page = 1, perPage = 1).data.any {
             it.name.equals(name, ignoreCase = true)

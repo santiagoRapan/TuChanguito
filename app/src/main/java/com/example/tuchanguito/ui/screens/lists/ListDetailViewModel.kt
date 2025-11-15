@@ -276,7 +276,11 @@ class ListDetailViewModel(
 
                 val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
                 historyRepository.save(summaryList.id, summaryList.name)
-                shoppingListsRepository.deleteList(listId)
+                if (summaryList.recurring) {
+                    shoppingListsRepository.resetList(listId)
+                } else {
+                    shoppingListsRepository.deleteList(listId)
+                }
             }
             _uiState.update { it.copy(isProcessing = false) }
             result.fold(

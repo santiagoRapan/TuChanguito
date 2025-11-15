@@ -23,6 +23,7 @@ object Routes {
     const val REGISTER = "auth/register"
     const val VERIFY = "auth/verify"
     const val CHANGE_PASSWORD = "auth/changePassword"
+    const val RECOVER_PASSWORD = "auth/recoverPassword"
 
     const val LIST_DETAIL = "lists/detail/{listId}"
     const val LIST_HISTORY = "lists/history"

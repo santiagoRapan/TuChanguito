@@ -48,6 +48,12 @@ class AuthViewModel(
     suspend fun changePassword(current: String, new: String) =
         repository.changePassword(current, new)
 
+    suspend fun recoverPassword(email: String) =
+        repository.recoverPassword(email)
+
+    suspend fun resetPassword(code: String, newPassword: String) =
+        repository.resetPassword(code, newPassword)
+
     suspend fun validateCredentials(email: String, password: String) =
         repository.validateCredentials(email, password)
 

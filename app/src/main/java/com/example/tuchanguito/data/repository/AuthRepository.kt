@@ -40,6 +40,14 @@ class AuthRepository(
         remote.changePassword(current, new)
     }
 
+    suspend fun recoverPassword(email: String): Result<Unit> = runCatching {
+        remote.recoverPassword(email.trim())
+    }
+
+    suspend fun resetPassword(code: String, password: String): Result<Unit> = runCatching {
+        remote.resetPassword(code.trim(), password)
+    }
+
     suspend fun validateCredentials(email: String, password: String): Result<Unit> = runCatching {
         remote.login(email, password)
     }

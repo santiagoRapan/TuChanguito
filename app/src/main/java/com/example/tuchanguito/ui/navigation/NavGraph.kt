@@ -10,6 +10,7 @@ import com.example.tuchanguito.ui.screens.auth.ChangePasswordScreen
 import com.example.tuchanguito.ui.screens.auth.LoginScreen
 import com.example.tuchanguito.ui.screens.auth.RegisterScreen
 import com.example.tuchanguito.ui.screens.auth.VerifyScreen
+import com.example.tuchanguito.ui.screens.auth.RecoverPasswordScreen
 import com.example.tuchanguito.ui.screens.home.HomeScreen
 import com.example.tuchanguito.ui.screens.lists.ListDetailScreen
 import com.example.tuchanguito.ui.screens.lists.ListHistoryScreen
@@ -27,12 +28,14 @@ fun AppNavGraph(
 ) {
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
         navigation(startDestination = Routes.LOGIN, route = Routes.AUTH) {
-            composable(Routes.LOGIN) { LoginScreen(
-                { navController.navigate(TopLevelDest.Home.route) { popUpTo(Routes.AUTH) { inclusive = true } } },
-                { navController.navigate(Routes.REGISTER) },
-                { navController.navigate(Routes.CHANGE_PASSWORD) },
-                { navController.navigate(Routes.VERIFY) }
-            ) }
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    { navController.navigate(TopLevelDest.Home.route) { popUpTo(Routes.AUTH) { inclusive = true } } },
+                    { navController.navigate(Routes.REGISTER) },
+                    { navController.navigate(Routes.RECOVER_PASSWORD) },
+                    { navController.navigate(Routes.VERIFY) }
+                )
+            }
             composable(Routes.REGISTER) { RegisterScreen(
                 { navController.navigate(Routes.VERIFY) }
             ) }
@@ -41,6 +44,16 @@ fun AppNavGraph(
                 { navController.navigate(Routes.LOGIN) { popUpTo(Routes.AUTH) { inclusive = false } } }
             ) }
             composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() }) }
+            composable(Routes.RECOVER_PASSWORD) {
+                RecoverPasswordScreen(
+                    onBack = { navController.popBackStack() },
+                    onDone = {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.AUTH) { inclusive = false }
+                        }
+                    }
+                )
+            }
         }
 
         composable(TopLevelDest.Home.route) {

@@ -64,7 +64,7 @@ fun CategoriesScreen() {
             androidx.compose.material3.CenterAlignedTopAppBar(
                 title = { Text(title, color = Color.White) },
                 colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White

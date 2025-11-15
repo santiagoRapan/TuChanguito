@@ -55,7 +55,7 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
             title = { Text(modifyPasswordLabel, color = androidx.compose.ui.graphics.Color.White) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
             colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = MaterialTheme.colorScheme.primary,
+                containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
                 titleContentColor = androidx.compose.ui.graphics.Color.White,
                 navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
                 actionIconContentColor = androidx.compose.ui.graphics.Color.White

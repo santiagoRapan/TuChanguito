@@ -6,23 +6,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.isSystemInDarkTheme
-import com.example.tuchanguito.ui.theme.ButtonBlue
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.background
 import androidx.core.view.WindowCompat
+import android.view.WindowManager
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,9 +32,9 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.unit.dp
@@ -54,36 +54,46 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.tuchanguito.ui.navigation.AppNavGraph
 import com.example.tuchanguito.ui.navigation.Routes
 import com.example.tuchanguito.ui.navigation.TopLevelDest
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.NavigationBarItemDefaults
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Ensure the window will draw system bar backgrounds and is not translucent
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
+        // Let the system reserve system bar areas by default; we'll handle edge-to-edge only in landscape
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContent {
             val prefs = PreferencesManager(this)
             val theme by prefs.theme.collectAsState(initial = "system")
             val isDark = when(theme){"dark"->true;"light"->false;else->isSystemInDarkTheme()}
             TuChanguitoTheme(darkTheme = isDark) {
-                // Read the theme background color from the composition, then
-                // apply it to the window background drawable via SideEffect.
-                // The SideEffect lambda is non-composable, so we must capture
-                // the color in a val first.
-                val windowBg = MaterialTheme.colorScheme.background
-                SideEffect {
-                    window.setBackgroundDrawable(ColorDrawable(windowBg.toArgb()))
-                }
+                 val windowBg = MaterialTheme.colorScheme.background
+                 SideEffect {
+                     window.setBackgroundDrawable(ColorDrawable(windowBg.toArgb()))
+                 }
 
-                Box(modifier = Modifier.fillMaxSize().background(windowBg)) {
-                    TuChanguitoApp()
-                }
-            }
-        }
-    }
+                 Box(modifier = Modifier.fillMaxSize().background(windowBg)) {
+                     TuChanguitoApp()
+                 }
+             }
+         }
+     }
+
+    // System bars are handled centrally in TuChanguitoTheme via accompanist SystemUiController
 }
 
 @PreviewScreenSizes
 @Composable
-fun TuChanguitoApp(modifier: Modifier = Modifier) {
+fun TuChanguitoApp() {
+    val sysUiController = rememberSystemUiController()
     val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val catalogRepository = remember { app.catalogRepository }
@@ -111,7 +121,6 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
     }
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val layoutType = if (isLandscape) NavigationSuiteType.NavigationRail else NavigationSuiteType.NavigationBar
 
     // Ensure default categories exist when user is logged in
     LaunchedEffect(authToken) {
@@ -134,8 +143,9 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
             // If layoutDirection==LTR, Start is left; if RTL, Start is right
             // We'll apply displayCutout padding on the rail side (Start)
             Row(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))) {
-                NavigationRail(modifier = Modifier.fillMaxHeight().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))) {
+                NavigationRail(containerColor = ColorPrimary, modifier = Modifier.fillMaxHeight().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))) {
                     Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically)) {
+                        val indicator = Color.White.copy(alpha = 0.18f)
                         listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
                             val selected = currentDestination?.route == dest.route
                             NavigationRailItem(
@@ -143,8 +153,15 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
                                 onClick = {
                                     navController.navigate(dest.route) { launchSingleTop = true }
                                 },
-                                icon = { Icon(dest.icon, contentDescription = androidx.compose.ui.res.stringResource(id = dest.labelRes)) },
-                                label = { Text(androidx.compose.ui.res.stringResource(id = dest.labelRes)) }
+                                icon = { Icon(dest.icon, contentDescription = androidx.compose.ui.res.stringResource(id = dest.labelRes), tint = if (selected) Color.White else Color.White.copy(alpha = 0.9f)) },
+                                label = { Text(androidx.compose.ui.res.stringResource(id = dest.labelRes), color = if (selected) Color.White else Color.White.copy(alpha = 0.9f)) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.9f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.White.copy(alpha = 0.9f),
+                                    indicatorColor = indicator
+                                )
                             )
                         }
                     }
@@ -160,26 +177,37 @@ fun TuChanguitoApp(modifier: Modifier = Modifier) {
                 }
             }
         } else {
-            NavigationSuiteScaffold(
-                layoutType = layoutType,
-                navigationSuiteItems = {
-                    listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
-                        item(
-                            icon = { Icon(dest.icon, contentDescription = androidx.compose.ui.res.stringResource(id = dest.labelRes), tint = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
-                            label = { Text(androidx.compose.ui.res.stringResource(id = dest.labelRes), color = if (currentDestination?.route == dest.route) ButtonBlue else Color.Unspecified) },
-                            selected = currentDestination?.route == dest.route,
-                            onClick = {
-                                navController.navigate(dest.route) { launchSingleTop = true }
-                            }
-                        )
+            // Portrait: let Scaffold respect system bars; NavigationBar sits above system navigation area
+            Scaffold(
+                bottomBar = {
+                    val indicator = Color.White.copy(alpha = 0.18f)
+                    NavigationBar(containerColor = ColorPrimary, tonalElevation = 12.dp) {
+                        listOf(TopLevelDest.Home, TopLevelDest.Products, TopLevelDest.Lists, TopLevelDest.Pantry, TopLevelDest.Profile).forEach { dest ->
+                            val selected = currentDestination?.route == dest.route
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { navController.navigate(dest.route) { launchSingleTop = true } },
+                                icon = { Icon(dest.icon, contentDescription = stringResource(id = dest.labelRes), tint = if (selected) Color.White else Color.White.copy(alpha = 0.9f)) },
+                                label = { Text(stringResource(id = dest.labelRes), color = if (selected) Color.White else Color.White.copy(alpha = 0.9f)) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.White,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.9f),
+                                    selectedTextColor = Color.White,
+                                    unselectedTextColor = Color.White.copy(alpha = 0.9f),
+                                    indicatorColor = indicator
+                                )
+                            )
+                        }
                     }
                 }
-            ) {
-                AppNavGraph(
-                    navController = navController,
-                    startDestination = TopLevelDest.Home.route,
-                    modifier = Modifier.fillMaxSize()
-                )
+            ) { innerPadding ->
+                Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                    AppNavGraph(
+                        navController = navController,
+                        startDestination = TopLevelDest.Home.route,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }

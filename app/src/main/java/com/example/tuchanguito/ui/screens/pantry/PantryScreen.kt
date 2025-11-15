@@ -48,6 +48,8 @@ import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
+import com.example.tuchanguito.ui.theme.ButtonBlue
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
@@ -73,7 +75,7 @@ fun PantryScreen() {
             androidx.compose.material3.CenterAlignedTopAppBar(
                 title = { Text(stringResource(id = R.string.pantry), color = Color.White) },
                 colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White

@@ -85,6 +85,7 @@ import com.example.tuchanguito.ui.screens.lists.ListDetailViewModel
 import com.example.tuchanguito.ui.screens.lists.ListDetailViewModelFactory
 import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
 import com.example.tuchanguito.ui.screens.lists.ShareUiState
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -170,7 +171,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White

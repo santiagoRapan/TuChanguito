@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.model.ShoppingList
 import com.example.tuchanguito.R
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,8 +78,10 @@ fun ListsScreen(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.my_lists), fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = ColorPrimary,
                     titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         },

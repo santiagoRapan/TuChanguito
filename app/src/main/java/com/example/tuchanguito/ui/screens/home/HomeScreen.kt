@@ -47,6 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.ui.theme.ButtonBlue
+import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorPrimaryBorder
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
 
@@ -70,7 +71,7 @@ fun HomeScreen(
             androidx.compose.material3.CenterAlignedTopAppBar(
                 title = { Text(stringResource(id = R.string.app_name), color = Color.White) },
                 colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White

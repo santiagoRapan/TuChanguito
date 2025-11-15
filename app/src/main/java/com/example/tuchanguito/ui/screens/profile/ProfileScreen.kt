@@ -73,7 +73,7 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
         androidx.compose.material3.CenterAlignedTopAppBar(
             title = { Text(profileLabel, color = androidx.compose.ui.graphics.Color.White) },
             colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = MaterialTheme.colorScheme.primary,
+                containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
                 titleContentColor = androidx.compose.ui.graphics.Color.White,
                 navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
                 actionIconContentColor = androidx.compose.ui.graphics.Color.White

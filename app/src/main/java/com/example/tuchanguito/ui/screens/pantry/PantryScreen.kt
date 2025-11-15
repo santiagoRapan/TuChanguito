@@ -50,6 +50,7 @@ import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,7 +69,17 @@ fun PantryScreen() {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(id = R.string.pantry)) }) },
+        topBar = {
+            androidx.compose.material3.CenterAlignedTopAppBar(
+                title = { Text(stringResource(id = R.string.pantry), color = Color.White) },
+                colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHost) },
         floatingActionButton = {
             // Circular button consistent with ListsScreen style

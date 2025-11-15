@@ -87,13 +87,19 @@ fun RecoverPasswordScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
+            androidx.compose.material3.CenterAlignedTopAppBar(
+                title = { Text(title, color = androidx.compose.ui.graphics.Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back))
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back), tint = androidx.compose.ui.graphics.Color.White)
                     }
-                }
+                },
+                colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = androidx.compose.ui.graphics.Color.White,
+                    navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
+                    actionIconContentColor = androidx.compose.ui.graphics.Color.White
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHost) },

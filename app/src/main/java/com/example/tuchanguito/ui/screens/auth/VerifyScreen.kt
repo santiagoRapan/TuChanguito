@@ -62,9 +62,15 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(verifyAccountLabel) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel) } }
+        androidx.compose.material3.CenterAlignedTopAppBar(
+            title = { Text(verifyAccountLabel, color = androidx.compose.ui.graphics.Color.White) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
+            colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = androidx.compose.ui.graphics.Color.White,
+                navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
+                actionIconContentColor = androidx.compose.ui.graphics.Color.White
+            )
         )
     }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {

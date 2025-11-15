@@ -51,9 +51,15 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(modifyPasswordLabel) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel) } }
+        androidx.compose.material3.CenterAlignedTopAppBar(
+            title = { Text(modifyPasswordLabel, color = androidx.compose.ui.graphics.Color.White) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
+            colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = androidx.compose.ui.graphics.Color.White,
+                navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
+                actionIconContentColor = androidx.compose.ui.graphics.Color.White
+            )
         )
     }, contentWindowInsets = WindowInsets.systemBars) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {

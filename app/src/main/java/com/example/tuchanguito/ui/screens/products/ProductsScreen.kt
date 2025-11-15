@@ -11,10 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import android.content.res.Configuration
 import com.example.tuchanguito.R
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.network.model.CategoryDto
@@ -89,9 +88,15 @@ fun ProductsScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(productsTitle) },
-                windowInsets = TopAppBarDefaults.windowInsets
+            androidx.compose.material3.CenterAlignedTopAppBar(
+                title = { Text(productsTitle, color = Color.White) },
+                windowInsets = TopAppBarDefaults.windowInsets,
+                colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         },
         snackbarHost = { SnackbarHost(snack) },

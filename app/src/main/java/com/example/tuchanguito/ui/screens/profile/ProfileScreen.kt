@@ -69,7 +69,17 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
         loading = false
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(profileLabel) }) }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
+    Scaffold(topBar = {
+        androidx.compose.material3.CenterAlignedTopAppBar(
+            title = { Text(profileLabel, color = androidx.compose.ui.graphics.Color.White) },
+            colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = androidx.compose.ui.graphics.Color.White,
+                navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
+                actionIconContentColor = androidx.compose.ui.graphics.Color.White
+            )
+        )
+    }, snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         val scrollMod = if (isLandscape) Modifier.verticalScroll(rememberScrollState()) else Modifier
 

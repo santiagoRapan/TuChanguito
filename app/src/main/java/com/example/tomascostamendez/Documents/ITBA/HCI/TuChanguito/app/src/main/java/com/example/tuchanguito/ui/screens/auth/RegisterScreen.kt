@@ -1,6 +1,3 @@
 package com.example.tuchanguito.placeholder
 
-// Placeholder file created by automated edit. Left intentionally minimal and in a neutral package
-// to avoid interfering with real sources. No runtime effect.
-
-object _PlaceholderRegisterScreen
+// This file was created by mistake and is intentionally left empty to avoid interfering with real sources.

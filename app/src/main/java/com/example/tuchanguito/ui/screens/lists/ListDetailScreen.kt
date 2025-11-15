@@ -237,7 +237,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Costo total:", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.total_cost), style = MaterialTheme.typography.bodySmall)
                         Text("$%.2f".format(totalCost), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
 

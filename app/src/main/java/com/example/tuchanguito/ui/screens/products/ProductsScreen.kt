@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,8 +66,12 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.ui.theme.ColorPrimary
-import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +89,7 @@ fun ProductsScreen() {
     val noProductsLabel = stringResource(id = R.string.no_products)
     val createErrorLabel = stringResource(id = R.string.create_error)
     val deleteErrorLabel = stringResource(id = R.string.delete_error)
-    val editLabel = stringResource(id = R.string.edit_profile)
+    val editLabel = stringResource(id = R.string.edit_profile) // reuse edit label
     val deleteLabel = stringResource(id = R.string.delete_error)
 
     var query by rememberSaveable { mutableStateOf("") }
@@ -92,10 +97,54 @@ fun ProductsScreen() {
 
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var editingProductId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var productIdToDelete by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var remoteCategories by remember { mutableStateOf(listOf<CategoryDto>()) }
     var remoteProducts by remember { mutableStateOf(listOf<ProductDto>()) }
+
+    // Helper to delete a product and clean all references in pantry and lists
+    fun removeProductEverywhere(productId: Long, productName: String) {
+        scope.launch {
+            suspend fun cleanupRefs() {
+                // Pantry cleanup (best-effort) BEFORE product deletion using search by product name to avoid orphans crash
+                runCatching { app.pantryRepository.getItems(search = productName) }
+                    .onSuccess { items ->
+                        items.filter { it.product.id == productId }.forEach { pi ->
+                            runCatching { app.pantryRepository.deleteItem(pi.id) }
+                        }
+                    }
+                // Shopping lists cleanup (best-effort) BEFORE product deletion
+                runCatching { app.shoppingListsRepository.getLists(perPage = 200) }
+                    .onSuccess { page ->
+                        page.data.forEach { list ->
+                            runCatching { app.shoppingListsRepository.getItems(list.id) }
+                                .onSuccess { listItems ->
+                                    listItems.filter { it.product.id == productId }.forEach { li ->
+                                        runCatching { app.shoppingListsRepository.deleteItem(list.id, li.id) }
+                                    }
+                                }
+                        }
+                    }
+            }
+
+            // Always cleanup references first to keep server consistent
+            cleanupRefs()
+
+            // Then attempt to delete the product
+            val deleteAttempt = runCatching { catalogRepository.deleteProduct(productId) }
+            if (deleteAttempt.isSuccess) {
+                remoteProducts = remoteProducts.filterNot { it.id == productId }
+            } else {
+                // If deletion still fails, make one more cleanup pass and retry once
+                cleanupRefs()
+                val retry = runCatching { catalogRepository.deleteProduct(productId) }
+                if (retry.isSuccess) {
+                    remoteProducts = remoteProducts.filterNot { it.id == productId }
+                } else {
+                    snack.showSnackbar(retry.exceptionOrNull()?.message ?: deleteErrorLabel)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val res = catalogRepository.syncCatalog()
@@ -108,7 +157,7 @@ fun ProductsScreen() {
                 remoteCategories = cats
                 if (selectedCategoryId != null && cats.none { it.id == selectedCategoryId }) selectedCategoryId = null
             }
-            .onFailure { snack.showSnackbar(it.message ?: "Error cargando categorias") }
+            .onFailure { snack.showSnackbar(it.message ?: "Error cargando categorías") }
     }
 
     LaunchedEffect(query, selectedCategoryId) {
@@ -135,7 +184,7 @@ fun ProductsScreen() {
             Button(
                 onClick = { showCreate = true },
                 shape = CircleShape,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                contentPadding = PaddingValues(0.dp),
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = newProductDesc)
@@ -183,19 +232,21 @@ fun ProductsScreen() {
                     .fillMaxWidth()
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)
+                contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 if (remoteProducts.isEmpty()) {
                     item { Text(noProductsLabel, style = MaterialTheme.typography.bodyMedium) }
                 } else {
-                    items(remoteProducts.size, key = { idx -> remoteProducts[idx].id ?: idx.toLong() }) { i ->
+                    items(remoteProducts.size, key = { idx -> remoteProducts[idx].id }) { i ->
                         val p = remoteProducts[i]
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { target ->
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
-                                    productIdToDelete = p.id
+                                    removeProductEverywhere(p.id, p.name)
+                                    true
+                                } else {
                                     false
-                                } else false
+                                }
                             }
                         )
                         SwipeToDismissBox(
@@ -207,27 +258,22 @@ fun ProductsScreen() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 56.dp),
-                                    contentAlignment = Alignment.Center
+                                        .heightIn(min = 56.dp)
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(vertical = 0.dp),
+                                    contentAlignment = Alignment.CenterEnd
                                 ) {
-                                    Card(
-                                        modifier = Modifier
+                                    Row(
+                                        Modifier
                                             .fillMaxWidth()
-                                            .heightIn(min = 56.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.End
                                     ) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.Delete,
-                                                contentDescription = null,
-                                                tint = fgColor
-                                            )
-                                        }
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            contentDescription = null,
+                                            tint = fgColor
+                                        )
                                     }
                                 }
                             }
@@ -237,7 +283,9 @@ fun ProductsScreen() {
                                 editLabel = editLabel,
                                 deleteLabel = deleteLabel,
                                 onEdit = { editingProductId = p.id },
-                                onDelete = { productIdToDelete = p.id }
+                                onDelete = {
+                                    removeProductEverywhere(p.id, p.name)
+                                }
                             )
                         }
                     }
@@ -287,7 +335,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -302,8 +350,11 @@ fun ProductsScreen() {
 
     remoteProducts.firstOrNull { it.id == editingProductId }?.let { prod ->
         var name by rememberSaveable { mutableStateOf(prod.name) }
-        var priceText by rememberSaveable { mutableStateOf("") }
-        var unit by rememberSaveable { mutableStateOf("") }
+        var priceText by rememberSaveable {
+            val price = prod.metadata.doubleValue("price")
+            mutableStateOf(price.toString())
+        }
+        var unit by rememberSaveable { mutableStateOf(prod.metadata.stringValue("unit")) }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(prod.category?.id) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
@@ -341,7 +392,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -350,31 +401,6 @@ fun ProductsScreen() {
                         }
                     }
                 }
-            }
-        )
-    }
-
-    if (productIdToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { productIdToDelete = null },
-            title = { Text(stringResource(id = R.string.confirm_delete_title)) },
-            text = { Text(stringResource(id = R.string.confirm_delete_product_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val id = productIdToDelete ?: return@TextButton
-                    productIdToDelete = null
-                    scope.launch {
-                        val res = runCatching { catalogRepository.deleteProduct(id) }
-                        if (res.isFailure) {
-                            snack.showSnackbar(res.exceptionOrNull()?.message ?: deleteErrorLabel)
-                        } else {
-                            remoteProducts = remoteProducts.filterNot { it.id == id }
-                        }
-                    }
-                }) { Text(stringResource(id = R.string.delete_action)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { productIdToDelete = null }) { Text(stringResource(id = R.string.cancel)) }
             }
         )
     }
@@ -388,14 +414,12 @@ private fun ProductCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isDark = MaterialTheme.colorScheme.background != Color.White
-    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
-
+    // Card with white background (barras blancas) and no price line under the name
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor)
+        colors = CardDefaults.cardColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onBackground)
     ) {
         Row(
             modifier = Modifier
@@ -409,6 +433,7 @@ private fun ProductCard(
                     text = product.name,
                     fontWeight = FontWeight.Bold
                 )
+                // Price line intentionally removed per request
             }
             Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -430,3 +455,9 @@ private fun ProductCard(
         }
     }
 }
+
+private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double =
+    this?.jsonObject?.get(key)?.jsonPrimitive?.doubleOrNull ?: default
+
+private fun JsonElement?.stringValue(key: String): String =
+    this?.jsonObject?.get(key)?.jsonPrimitive?.contentOrNull.orEmpty()

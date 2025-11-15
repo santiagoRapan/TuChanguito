@@ -7,6 +7,7 @@ import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.data.network.model.ListItemDto
 import com.example.tuchanguito.data.network.model.ShoppingListDto
+import com.example.tuchanguito.data.network.core.DataSourceException
 import com.example.tuchanguito.data.repository.CategoryRepository
 import com.example.tuchanguito.data.repository.PantryRepository
 import com.example.tuchanguito.data.repository.ProductRepository
@@ -22,7 +23,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 
 data class ListDetailUiState(
     val isLoading: Boolean = true,
@@ -187,7 +187,7 @@ class ListDetailViewModel(
                             _events.emit(ListDetailEvent.ItemAdded)
                         },
                         onFailure = { error ->
-                            if (error is HttpException && error.code() == 409) {
+                            if (error is DataSourceException && error.statusCode == 409) {
                                 val handled = incrementExistingItem(resolvedId, normalizedUnit)
                                 if (handled) {
                                     _events.emit(ListDetailEvent.ItemAdded)

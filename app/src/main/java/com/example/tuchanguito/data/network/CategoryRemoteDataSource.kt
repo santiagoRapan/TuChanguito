@@ -1,6 +1,7 @@
 package com.example.tuchanguito.data.network
 
 import com.example.tuchanguito.data.network.api.CategoryApiService
+import com.example.tuchanguito.data.network.core.RemoteDataSource
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.CreateCategoryRequestDto
 import com.example.tuchanguito.data.network.model.PaginatedResponseDto
@@ -9,7 +10,7 @@ import kotlinx.serialization.json.JsonElement
 
 class CategoryRemoteDataSource(
     private val api: CategoryApiService
-) {
+): RemoteDataSource() {
 
     suspend fun getCategories(
         page: Int? = null,
@@ -17,15 +18,17 @@ class CategoryRemoteDataSource(
         sortBy: String? = null,
         order: String? = null,
         name: String? = null
-    ): PaginatedResponseDto<CategoryDto> = api.getCategories(page, perPage, sortBy, order, name)
+    ): PaginatedResponseDto<CategoryDto> = safeApiCall {
+        api.getCategories(page, perPage, sortBy, order, name)
+    }
 
-    suspend fun getCategory(id: Long): CategoryDto = api.getCategoryById(id)
+    suspend fun getCategory(id: Long): CategoryDto = safeApiCall { api.getCategoryById(id) }
 
     suspend fun createCategory(name: String, metadata: JsonElement? = null): CategoryDto =
-        api.createCategory(CreateCategoryRequestDto(name = name, metadata = metadata))
+        safeApiCall { api.createCategory(CreateCategoryRequestDto(name = name, metadata = metadata)) }
 
     suspend fun updateCategory(id: Long, name: String, metadata: JsonElement? = null): CategoryDto =
-        api.updateCategory(id, UpdateCategoryRequestDto(name = name, metadata = metadata))
+        safeApiCall { api.updateCategory(id, UpdateCategoryRequestDto(name = name, metadata = metadata)) }
 
-    suspend fun deleteCategory(id: Long) = api.deleteCategory(id)
+    suspend fun deleteCategory(id: Long) = safeApiCall { api.deleteCategory(id) }
 }

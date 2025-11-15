@@ -1,6 +1,7 @@
 package com.example.tuchanguito.data.network
 
 import com.example.tuchanguito.data.network.api.ShoppingListsApiService
+import com.example.tuchanguito.data.network.core.RemoteDataSource
 import com.example.tuchanguito.data.network.model.CreateListItemRequestDto
 import com.example.tuchanguito.data.network.model.CreateShoppingListRequestDto
 import com.example.tuchanguito.data.network.model.ListItemDto
@@ -12,10 +13,11 @@ import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.data.network.model.ToggleItemRequestDto
 import com.example.tuchanguito.data.network.model.UpdateShoppingListRequestDto
 import kotlinx.serialization.json.JsonObject
+import retrofit2.HttpException
 
 class ShoppingListsRemoteDataSource(
     private val api: ShoppingListsApiService
-) {
+): RemoteDataSource() {
     suspend fun listShoppingLists(
         name: String? = null,
         owner: Boolean? = null,
@@ -24,18 +26,20 @@ class ShoppingListsRemoteDataSource(
         perPage: Int? = null,
         sortBy: String? = null,
         order: String? = null
-    ): PaginatedResponseDto<ShoppingListDto> =
+    ): PaginatedResponseDto<ShoppingListDto> = safeApiCall {
         api.getLists(name, owner, recurring, page, perPage, sortBy, order)
+    }
 
-    suspend fun getShoppingList(id: Long): ShoppingListDto = api.getList(id)
+    suspend fun getShoppingList(id: Long): ShoppingListDto = safeApiCall { api.getList(id) }
 
     suspend fun createShoppingList(
         name: String,
         description: String,
         recurring: Boolean = false,
         metadata: JsonObject? = null
-    ): ShoppingListDto =
+    ): ShoppingListDto = safeApiCall {
         api.createList(CreateShoppingListRequestDto(name, description, recurring, metadata))
+    }
 
     suspend fun updateShoppingList(
         id: Long,
@@ -43,29 +47,30 @@ class ShoppingListsRemoteDataSource(
         description: String? = null,
         recurring: Boolean? = null,
         metadata: JsonObject? = null
-    ): ShoppingListDto =
+    ): ShoppingListDto = safeApiCall {
         api.updateList(id, UpdateShoppingListRequestDto(name, description, recurring, metadata))
+    }
 
-    suspend fun deleteShoppingList(id: Long) = api.deleteList(id)
+    suspend fun deleteShoppingList(id: Long) = safeApiCall { api.deleteList(id) }
 
     suspend fun purchaseShoppingList(id: Long, metadata: JsonObject? = null): ShoppingListDto =
-        api.purchaseList(id, PurchaseListRequestDto(metadata))
+        safeApiCall { api.purchaseList(id, PurchaseListRequestDto(metadata)) }
 
-    suspend fun resetShoppingList(id: Long): ShoppingListDto = api.resetList(id)
+    suspend fun resetShoppingList(id: Long): ShoppingListDto = safeApiCall { api.resetList(id) }
 
     suspend fun moveShoppingListToPantry(id: Long) {
-        val response = api.moveListToPantry(id)
+        val response = safeApiCall { api.moveListToPantry(id) }
         if (!response.isSuccessful) {
-            throw retrofit2.HttpException(response)
+            throw HttpException(response)
         }
     }
 
     suspend fun shareShoppingList(id: Long, email: String): ShoppingListDto =
-        api.shareList(id, ShareListRequestDto(email))
+        safeApiCall { api.shareList(id, ShareListRequestDto(email)) }
 
-    suspend fun getSharedUsers(id: Long): List<SharedUserDto> = api.getSharedUsers(id)
+    suspend fun getSharedUsers(id: Long): List<SharedUserDto> = safeApiCall { api.getSharedUsers(id) }
 
-    suspend fun revokeShare(id: Long, userId: Long) = api.revokeShare(id, userId)
+    suspend fun revokeShare(id: Long, userId: Long) = safeApiCall { api.revokeShare(id, userId) }
 
     suspend fun getItems(
         listId: Long,
@@ -73,8 +78,9 @@ class ShoppingListsRemoteDataSource(
         perPage: Int? = null,
         sortBy: String? = null,
         order: String? = null
-    ): PaginatedResponseDto<ListItemDto> =
+    ): PaginatedResponseDto<ListItemDto> = safeApiCall {
         api.getItems(listId, page, perPage, sortBy, order)
+    }
 
     suspend fun addItem(
         listId: Long,
@@ -82,15 +88,17 @@ class ShoppingListsRemoteDataSource(
         quantity: Double = 1.0,
         unit: String = "u",
         metadata: JsonObject? = null
-    ): ListItemDto = api.addItem(
-        listId,
-        CreateListItemRequestDto(
-            product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId),
-            quantity = quantity,
-            unit = unit,
-            metadata = metadata
+    ): ListItemDto = safeApiCall {
+        api.addItem(
+            listId,
+            CreateListItemRequestDto(
+                product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId),
+                quantity = quantity,
+                unit = unit,
+                metadata = metadata
+            )
         )
-    ).item
+    }.item
 
     suspend fun updateItem(
         listId: Long,
@@ -99,14 +107,21 @@ class ShoppingListsRemoteDataSource(
         quantity: Double,
         unit: String,
         metadata: JsonObject? = null
-    ): ListItemDto = api.updateItem(
-        listId,
-        itemId,
-        CreateListItemRequestDto(product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId), quantity = quantity, unit = unit, metadata = metadata)
-    )
+    ): ListItemDto = safeApiCall {
+        api.updateItem(
+            listId,
+            itemId,
+            CreateListItemRequestDto(
+                product = com.example.tuchanguito.data.network.model.ProductReferenceDto(productId),
+                quantity = quantity,
+                unit = unit,
+                metadata = metadata
+            )
+        )
+    }
 
     suspend fun toggleItem(listId: Long, itemId: Long, purchased: Boolean): ListItemDto =
-        api.toggleItem(listId, itemId, ToggleItemRequestDto(purchased))
+        safeApiCall { api.toggleItem(listId, itemId, ToggleItemRequestDto(purchased)) }
 
-    suspend fun deleteItem(listId: Long, itemId: Long) = api.deleteItem(listId, itemId)
+    suspend fun deleteItem(listId: Long, itemId: Long) = safeApiCall { api.deleteItem(listId, itemId) }
 }

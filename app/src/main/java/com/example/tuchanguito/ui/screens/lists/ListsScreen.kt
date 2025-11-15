@@ -96,8 +96,7 @@ fun ListsScreen(
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.create_list))
             }
-        },
-        contentWindowInsets = WindowInsets.systemBars
+        }
     ) { padding ->
         Column(
             modifier = Modifier

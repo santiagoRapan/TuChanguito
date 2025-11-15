@@ -23,7 +23,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -33,13 +32,9 @@ import com.example.tuchanguito.R
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.ui.screens.auth.AuthViewModel
 import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
-import com.example.tuchanguito.ui.theme.PrimaryTextBlue
-import com.example.tuchanguito.ui.theme.ButtonBlue
-import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorSecondary
+import com.example.tuchanguito.ui.theme.ScreenBackgroundGrey
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +42,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
-import com.example.tuchanguito.ui.theme.ScreenBackgroundGrey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,15 +73,13 @@ fun LoginScreen(
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var remember by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets.systemBars
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             Modifier

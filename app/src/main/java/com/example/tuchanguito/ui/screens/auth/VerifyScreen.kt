@@ -17,8 +17,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +71,7 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                 actionIconContentColor = Color.White
             )
         )
-    }, contentWindowInsets = WindowInsets.systemBars) { padding ->
+    }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
             OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(emailToVerifyLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
             Spacer(Modifier.height(8.dp))

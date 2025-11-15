@@ -145,8 +145,7 @@ fun ProductsScreen() {
             ) {
                 Icon(Icons.Default.Add, contentDescription = newProductDesc)
             }
-        },
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets.systemBars
+        }
     ) { padding ->
         Column(
             Modifier
@@ -387,13 +386,12 @@ private fun ProductCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val priceVal = product.metadata.doubleValue("price")
-    val priceStr = "%.2f".format(priceVal)
-
+    // Card with white background (barras blancas) and no price line under the name
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onBackground)
     ) {
         Row(
             modifier = Modifier
@@ -407,11 +405,7 @@ private fun ProductCard(
                     text = product.name,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "${"$"}${priceStr} c/u",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+                // Price line intentionally removed per request
             }
             Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

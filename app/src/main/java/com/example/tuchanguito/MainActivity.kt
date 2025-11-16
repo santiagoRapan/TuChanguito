@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.MyApplication
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import com.example.tuchanguito.data.PreferencesManager
 import com.example.tuchanguito.ui.theme.TuChanguitoTheme
 import androidx.compose.ui.Modifier
@@ -97,7 +96,6 @@ fun TuChanguitoApp() {
     val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val catalogRepository = remember { app.catalogRepository }
-    val scope = rememberCoroutineScope()
     val prefs = remember { PreferencesManager(context) }
     val authToken by prefs.authToken.collectAsState(initial = null)
     val navController = rememberNavController()
@@ -125,9 +123,7 @@ fun TuChanguitoApp() {
     // Ensure default categories exist when user is logged in
     LaunchedEffect(authToken) {
         if (!authToken.isNullOrEmpty()) {
-            scope.launch {
-                catalogRepository.ensureDefaultCategories()
-            }
+            runCatching { catalogRepository.ensureDefaultCategories() }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.tuchanguito.data.network.core
 
+import com.example.tuchanguito.data.network.core.SessionManager
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -47,6 +48,9 @@ abstract class RemoteDataSource {
             400, 404, 409, 422 -> DataSourceException.Code.DATA
             401, 403 -> DataSourceException.Code.UNAUTHORIZED
             else -> DataSourceException.Code.UNEXPECTED
+        }
+        if (code == DataSourceException.Code.UNAUTHORIZED) {
+            SessionManager.handleUnauthorized()
         }
         return DataSourceException(
             code = code,

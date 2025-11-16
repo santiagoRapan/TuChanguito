@@ -1,24 +1,32 @@
 package com.example.tuchanguito.ui.screens.auth
 
 import android.util.Patterns
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
-import com.example.tuchanguito.ui.screens.auth.AuthViewModel
-import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
+import com.example.tuchanguito.ui.theme.ColorSecondary
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.graphics.Color
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -29,14 +37,12 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
 
     val verifyAccountLabel = stringResource(id = R.string.verify_account)
-    val backLabel = stringResource(id = R.string.back)
     val emailToVerifyLabel = stringResource(id = R.string.email_to_verify)
     val codeLabel = stringResource(id = R.string.code_label)
     val enterValidEmailLabel = stringResource(id = R.string.enter_valid_email)
     val codeResentFmt = stringResource(id = R.string.code_resent_fmt)
     val resendErrorLabel = stringResource(id = R.string.resend_error)
     val resendButtonLabel = stringResource(id = R.string.resend_button)
-    // Hoisted non-composable labels for coroutine usage
     val verifyErrorLabel = stringResource(id = R.string.error_changing_password)
 
     var code by remember { mutableStateOf("") }
@@ -47,7 +53,6 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
     val pendingPassword by authViewModel.pendingPassword.collectAsState()
     val rememberMe by authViewModel.rememberMe.collectAsState()
 
-    // Reactive email state: update when pendingEmail appears
     var email by remember { mutableStateOf(pendingEmail ?: "") }
     LaunchedEffect(pendingEmail) {
         if (!pendingEmail.isNullOrBlank()) {
@@ -60,26 +65,36 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
 
     val isEmailValid = remember(email) { Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() }
 
-    Scaffold(topBar = {
-        androidx.compose.material3.CenterAlignedTopAppBar(
-            title = { Text(verifyAccountLabel, color = androidx.compose.ui.graphics.Color.White) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
-            colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
-                titleContentColor = Color.White,
-                navigationIconContentColor = Color.White,
-                actionIconContentColor = Color.White
-            )
+    AuthScreenContainer(
+        title = verifyAccountLabel,
+        onBack = onBack,
+        content = {
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text(emailToVerifyLabel) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading && !resendLoading
         )
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
-            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(emailToVerifyLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading && !resendLoading)
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it },
+            label = { Text(codeLabel) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        )
+        if (error != null) {
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text(codeLabel) }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
-            if (error != null) { Spacer(Modifier.height(8.dp)); Text(text = error!!, color = MaterialTheme.colorScheme.error) }
-            if (resendMessage != null) { Spacer(Modifier.height(8.dp)); Text(text = resendMessage!!, color = MaterialTheme.colorScheme.primary) }
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = {
+            Text(text = error!!, color = MaterialTheme.colorScheme.error)
+        }
+        if (resendMessage != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(text = resendMessage!!, color = ColorSecondary)
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = {
                 isLoading = true
                 scope.launch {
                     try {
@@ -92,33 +107,42 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                                     val loginResult = authViewModel.login(e, p, rememberMe)
                                     if (loginResult.isSuccess) {
                                         authViewModel.clearPendingCredentials()
-                                        onVerified() // Go to Home (token set)
+                                        onVerified()
                                     } else {
                                         val msg = loginResult.exceptionOrNull()?.message ?: verifyErrorLabel
-                                        error = msg // inline only
+                                        error = msg
                                     }
                                 } else {
-                                    // Verified, but no credentials to log in: go back to Login
                                     onBack()
                                 }
                             } else {
-                                // Verified, but no credentials to log in: go back to Login
                                 onBack()
                             }
                         } else {
                             val msg = verifyResult.exceptionOrNull()?.message ?: verifyErrorLabel
-                            error = msg // inline only
+                            error = msg
                         }
                     } catch (t: Throwable) {
                         val msg = t.message ?: verifyErrorLabel
-                        error = msg // inline only
-                    } finally { isLoading = false }
+                        error = msg
+                    } finally {
+                        isLoading = false
+                    }
                 }
-            }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(verifyAccountLabel)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading,
+            colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = MaterialTheme.colorScheme.onPrimary)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text(verifyAccountLabel, color = MaterialTheme.colorScheme.onPrimary)
             }
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = {
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = {
                 resendMessage = null
                 resendLoading = true
                 scope.launch {
@@ -131,11 +155,20 @@ fun VerifyScreen(onVerified: () -> Unit, onBack: () -> Unit = {}) {
                                 .onSuccess { resendMessage = String.format(codeResentFmt, targetEmail) }
                                 .onFailure { resendMessage = it.message ?: resendErrorLabel }
                         }
-                    } finally { resendLoading = false }
+                    } finally {
+                        resendLoading = false
+                    }
                 }
-            }, enabled = isEmailValid && !resendLoading, modifier = Modifier.fillMaxWidth()) {
-                if (resendLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) else Text(resendButtonLabel)
+            },
+            enabled = isEmailValid && !resendLoading,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = MaterialTheme.colorScheme.onPrimary)
+        ) {
+            if (resendLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text(resendButtonLabel, color = MaterialTheme.colorScheme.onPrimary)
             }
         }
-    }
+    })
 }

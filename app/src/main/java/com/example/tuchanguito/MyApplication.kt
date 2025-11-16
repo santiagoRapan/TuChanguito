@@ -9,6 +9,7 @@ import com.example.tuchanguito.data.network.PantryRemoteDataSource
 import com.example.tuchanguito.data.network.ProductRemoteDataSource
 import com.example.tuchanguito.data.network.ShoppingListsRemoteDataSource
 import com.example.tuchanguito.data.network.api.RetrofitClient
+import com.example.tuchanguito.data.network.core.SessionManager
 import com.example.tuchanguito.data.repository.CategoryRepository
 import com.example.tuchanguito.data.repository.CatalogRepository
 import com.example.tuchanguito.data.repository.AuthRepository
@@ -24,10 +25,17 @@ class MyApplication : Application() {
 
     lateinit var preferences: PreferencesManager
         private set
-
     override fun onCreate() {
         super.onCreate()
         preferences = PreferencesManager(this)
+        SessionManager.configure {
+            preferences.setAuthToken(null)
+            preferences.setCurrentUserId(null)
+            preferences.setCurrentPantryId(null)
+            preferences.setLastOpenedListId(null)
+            preferences.clearPendingCredentials()
+            pantryRepository.clearCache()
+        }
         RetrofitClient.configureTokenProvider {
             runCatching { runBlocking { preferences.authToken.firstOrNull() } }.getOrNull()
         }

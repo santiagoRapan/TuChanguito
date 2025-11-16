@@ -14,6 +14,10 @@ class PantryRepository(
 
     private var cachedPantry: Pair<Long?, Long?>? = null
 
+    fun clearCache() {
+        cachedPantry = null
+    }
+
     private suspend fun resolvePantryId(): Long {
         val userId = preferences.currentUserId.firstOrNull()
         val cached = cachedPantry

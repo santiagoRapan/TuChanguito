@@ -1,23 +1,30 @@
 package com.example.tuchanguito.ui.screens.auth
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.R
 import com.example.tuchanguito.MyApplication
-import com.example.tuchanguito.ui.screens.auth.AuthViewModel
-import com.example.tuchanguito.ui.screens.auth.AuthViewModelFactory
+import com.example.tuchanguito.R
+import com.example.tuchanguito.ui.theme.ColorSecondary
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as MyApplication
@@ -27,7 +34,6 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val modifyPasswordLabel = stringResource(id = R.string.modify_password)
-    val backLabel = stringResource(id = R.string.back)
     val verifyIdentityLabel = stringResource(id = R.string.verify_identity)
     val currentPasswordLabel = stringResource(id = R.string.current_password)
     val verifyLabel = stringResource(id = R.string.verify)
@@ -38,40 +44,41 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val passwordsDoNotMatchLabel = stringResource(id = R.string.passwords_do_not_match)
     val errorChangingPasswordLabel = stringResource(id = R.string.error_changing_password)
     val saveNewPasswordLabel = stringResource(id = R.string.save_new_password)
-    // Hoist non-composable usages: use these inside coroutines/handlers
     val genericErrorLabel = stringResource(id = R.string.generic_error)
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
 
     var current by remember { mutableStateOf("") }
     var new1 by remember { mutableStateOf("") }
     var new2 by remember { mutableStateOf("") }
-    var step by remember { mutableStateOf(1) } // 1 = verify current, 2 = set new password
+    var step by remember { mutableStateOf(1) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    Scaffold(topBar = {
-        androidx.compose.material3.CenterAlignedTopAppBar(
-            title = { Text(modifyPasswordLabel, color = androidx.compose.ui.graphics.Color.White) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = backLabel, tint = androidx.compose.ui.graphics.Color.White) } },
-            colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = com.example.tuchanguito.ui.theme.ColorPrimary,
-                titleContentColor = androidx.compose.ui.graphics.Color.White,
-                navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
-                actionIconContentColor = androidx.compose.ui.graphics.Color.White
+
+    AuthScreenContainer(
+        title = modifyPasswordLabel,
+        onBack = onBack,
+        content = {
+        if (step == 1) {
+            Text(verifyIdentityLabel, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = current,
+                onValueChange = { current = it },
+                label = { Text(currentPasswordLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                enabled = !loading
             )
-        )
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
-            if (step == 1) {
-                Text(verifyIdentityLabel)
+            if (error != null) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = current, onValueChange = { current = it }, label = { Text(currentPasswordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
-                if (error != null) { Spacer(Modifier.height(8.dp)); Text(text = error!!, color = MaterialTheme.colorScheme.error) }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = {
+                Text(text = error!!, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
                     scope.launch {
                         loading = true
                         error = null
-                        // get email from profile
                         val profileRes = authViewModel.getProfile()
                         if (profileRes.isFailure) {
                             error = profileRes.exceptionOrNull()?.message ?: genericErrorLabel
@@ -84,7 +91,6 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                             loading = false
                             return@launch
                         }
-                        // Validate credentials without persisting token
                         val valid = authViewModel.validateCredentials(email, current)
                         if (valid.isSuccess) {
                             step = 2
@@ -93,20 +99,54 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                         }
                         loading = false
                     }
-                }, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text(verifyLabel) }
-            } else {
-                Text(chooseNewPasswordLabel)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !loading,
+                colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = MaterialTheme.colorScheme.onPrimary)
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text(verifyLabel, color = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        } else {
+            Text(chooseNewPasswordLabel, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = new1,
+                onValueChange = { new1 = it },
+                label = { Text(newPasswordLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                enabled = !loading
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = new2,
+                onValueChange = { new2 = it },
+                label = { Text(confirmNewPasswordLabel) },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                enabled = !loading
+            )
+            if (error != null) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = new1, onValueChange = { new1 = it }, label = { Text(newPasswordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = new2, onValueChange = { new2 = it }, label = { Text(confirmNewPasswordLabel) }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
-                if (error != null) { Spacer(Modifier.height(8.dp)); Text(text = error!!, color = MaterialTheme.colorScheme.error) }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = {
+                Text(text = error!!, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
                     scope.launch {
                         error = null
-                        if (new1.isBlank() || new2.isBlank()) { error = completeBothFieldsLabel; return@launch }
-                        if (new1 != new2) { error = passwordsDoNotMatchLabel; return@launch }
+                        if (new1.isBlank() || new2.isBlank()) {
+                            error = completeBothFieldsLabel
+                            return@launch
+                        }
+                        if (new1 != new2) {
+                            error = passwordsDoNotMatchLabel
+                            return@launch
+                        }
                         loading = true
                         val changeRes = authViewModel.changePassword(current, new1)
                         if (changeRes.isSuccess) {
@@ -116,8 +156,17 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                         }
                         loading = false
                     }
-                }, modifier = Modifier.fillMaxWidth(), enabled = !loading) { Text(saveNewPasswordLabel) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !loading,
+                colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = MaterialTheme.colorScheme.onPrimary)
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text(saveNewPasswordLabel, color = MaterialTheme.colorScheme.onPrimary)
+                }
             }
         }
-    }
+    })
 }

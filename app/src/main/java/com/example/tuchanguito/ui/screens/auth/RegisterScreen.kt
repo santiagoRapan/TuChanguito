@@ -48,6 +48,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
 
     val titleLabel = stringResource(id = R.string.register)
     val nameLabel = stringResource(id = R.string.name)
+    val surnameLabel = stringResource(id = R.string.surname)
     val emailLabel = stringResource(id = R.string.email)
     val passwordLabel = stringResource(id = R.string.password)
     val confirmPasswordLabel = stringResource(id = R.string.confirm_new_password)
@@ -58,6 +59,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
     val hidePasswordLabel = stringResource(id = R.string.hide_password)
 
     var name by remember { mutableStateOf("") }
+    var surname by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -67,6 +69,9 @@ fun RegisterScreen(onRegistered: () -> Unit) {
     var isLoading by remember { mutableStateOf(false) }
 
     val passwordsMatch = remember(password, confirm) { password.isNotBlank() && confirm.isNotBlank() && password == confirm }
+    val formValid = remember(name, surname, passwordsMatch) {
+        name.isNotBlank() && surname.isNotBlank() && passwordsMatch
+    }
 
     AuthScreenContainer(
         title = titleLabel,
@@ -77,6 +82,14 @@ fun RegisterScreen(onRegistered: () -> Unit) {
             value = name,
             onValueChange = { name = it },
             label = { Text(nameLabel) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = surname,
+            onValueChange = { surname = it },
+            label = { Text(surnameLabel) },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
         )
@@ -131,12 +144,17 @@ fun RegisterScreen(onRegistered: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = {
-                if (!passwordsMatch) return@Button
+                if (!formValid) return@Button
                 error = null
                 isLoading = true
                 scope.launch {
                     try {
-                        authViewModel.register(email.trim(), password, name)
+                        authViewModel.register(
+                            email.trim(),
+                            password,
+                            name.trim(),
+                            surname.trim()
+                        )
                             .onSuccess { onRegistered() }
                             .onFailure {
                                 val msg = it.message ?: genericErrorLabel
@@ -153,7 +171,7 @@ fun RegisterScreen(onRegistered: () -> Unit) {
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && passwordsMatch,
+            enabled = !isLoading && formValid,
             colors = ButtonDefaults.buttonColors(containerColor = ColorSecondary, contentColor = Color.White)
         ) {
             if (isLoading) {

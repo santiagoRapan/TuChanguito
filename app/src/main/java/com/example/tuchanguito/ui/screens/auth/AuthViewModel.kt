@@ -38,8 +38,8 @@ class AuthViewModel(
     suspend fun login(email: String, password: String, remember: Boolean) =
         repository.login(email, password, remember)
 
-    suspend fun register(email: String, password: String, displayName: String) =
-        repository.register(email, password, displayName)
+    suspend fun register(email: String, password: String, name: String, surname: String) =
+        repository.register(email, password, name, surname)
 
     suspend fun verify(code: String) = repository.verify(code)
 

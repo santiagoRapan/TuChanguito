@@ -4,11 +4,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.VisualTransformation
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
 import com.example.tuchanguito.ui.theme.ColorSecondary
@@ -46,6 +52,8 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val saveNewPasswordLabel = stringResource(id = R.string.save_new_password)
     val genericErrorLabel = stringResource(id = R.string.generic_error)
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
+    val showPasswordLabel = stringResource(id = R.string.show_password)
+    val hidePasswordLabel = stringResource(id = R.string.hide_password)
 
     var current by remember { mutableStateOf("") }
     var new1 by remember { mutableStateOf("") }
@@ -53,6 +61,9 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
     var step by remember { mutableStateOf(1) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var currentVisible by remember { mutableStateOf(false) }
+    var new1Visible by remember { mutableStateOf(false) }
+    var new2Visible by remember { mutableStateOf(false) }
 
     AuthScreenContainer(
         title = modifyPasswordLabel,
@@ -66,7 +77,14 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 onValueChange = { current = it },
                 label = { Text(currentPasswordLabel) },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (currentVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { currentVisible = !currentVisible }, enabled = !loading) {
+                        val icon = if (currentVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                        val desc = if (currentVisible) hidePasswordLabel else showPasswordLabel
+                        Icon(imageVector = icon, contentDescription = desc, tint = ColorSecondary)
+                    }
+                },
                 enabled = !loading
             )
             if (error != null) {
@@ -118,7 +136,14 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 onValueChange = { new1 = it },
                 label = { Text(newPasswordLabel) },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (new1Visible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { new1Visible = !new1Visible }, enabled = !loading) {
+                        val icon = if (new1Visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                        val desc = if (new1Visible) hidePasswordLabel else showPasswordLabel
+                        Icon(imageVector = icon, contentDescription = desc, tint = ColorSecondary)
+                    }
+                },
                 enabled = !loading
             )
             Spacer(Modifier.height(8.dp))
@@ -127,7 +152,14 @@ fun ChangePasswordScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 onValueChange = { new2 = it },
                 label = { Text(confirmNewPasswordLabel) },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (new2Visible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { new2Visible = !new2Visible }, enabled = !loading) {
+                        val icon = if (new2Visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                        val desc = if (new2Visible) hidePasswordLabel else showPasswordLabel
+                        Icon(imageVector = icon, contentDescription = desc, tint = ColorSecondary)
+                    }
+                },
                 enabled = !loading
             )
             if (error != null) {

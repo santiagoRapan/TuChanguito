@@ -14,11 +14,13 @@ class AuthRepository(
     val pendingEmailFlow: Flow<String?> = preferences.pendingEmail
     val pendingPasswordFlow: Flow<String?> = preferences.pendingPassword
 
-    suspend fun register(email: String, password: String, displayName: String): Result<Unit> = runCatching {
-        val parts = displayName.trim().split(" ")
-        val name = parts.firstOrNull().orEmpty().ifBlank { displayName }
-        val surname = parts.drop(1).joinToString(" ")
-        remote.register(email.trim(), name, surname, password)
+    suspend fun register(email: String, password: String, name: String, surname: String): Result<Unit> = runCatching {
+        remote.register(
+            email = email.trim(),
+            name = name.trim(),
+            surname = surname.trim(),
+            password = password
+        )
         preferences.setPendingCredentials(email.trim(), password)
     }
 

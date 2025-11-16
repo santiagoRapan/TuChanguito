@@ -1,5 +1,6 @@
 package com.example.tuchanguito.ui.screens.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
+import com.example.tuchanguito.ui.theme.ColorPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +108,16 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
                         Text("${surnameLabel}: ${surname ?: ""}")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = { editMode = true }) { Text(editProfileLabel) }
-                            Button(onClick = { onChangePassword() }) { Text(changePasswordLabel) }
+                            OutlinedButton(
+                                onClick = { onChangePassword() },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.background,
+                                    contentColor = ColorPrimary
+                                ),
+                                border = BorderStroke(1.dp, ColorPrimary)
+                            ) {
+                                Text(changePasswordLabel)
+                            }
                         }
                     } else {
                         OutlinedTextField(

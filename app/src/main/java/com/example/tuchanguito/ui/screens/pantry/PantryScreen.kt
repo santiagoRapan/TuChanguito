@@ -1,17 +1,7 @@
 package com.example.tuchanguito.ui.screens.pantry
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -51,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -144,12 +135,22 @@ fun PantryScreen() {
                 }
             } else {
                 if (uiState.items.isEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(stringResource(id = R.string.no_products_in_pantry))
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .border(BorderStroke(1.dp, Color.Black), shape = RoundedCornerShape(8.dp))
+                                .background(Color.Transparent, shape = RoundedCornerShape(8.dp))
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.pantry_empty_message),
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(4.dp)
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -161,7 +162,6 @@ fun PantryScreen() {
                             PantryItemRow(
                                 name = item.product.name,
                                 quantity = item.quantity,
-                                unit = item.unit ?: "",
                                 onInc = { viewModel.incrementItem(item.id, item.quantity, item.unit) },
                                 onDec = { viewModel.decrementItem(item.id, item.quantity, item.unit) },
                                 onRequestDelete = { itemToDeleteId = item.id }
@@ -215,14 +215,16 @@ private fun AddPantryItemDialog(
     var name by rememberSaveable { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var priceText by rememberSaveable { mutableStateOf("") }
-    var unit by rememberSaveable { mutableStateOf("u") }
+    // Default unit should be empty instead of "u"
+    var unit by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
 
     fun prefill(product: Product) {
         name = product.name
         priceText = if (product.price != 0.0) product.price.toString() else ""
-        unit = product.unit.ifBlank { "u" }
+        // If product has no unit, keep it empty (do not default to "u")
+        unit = product.unit.ifBlank { "" }
         category = categories.firstOrNull { it.id == product.categoryId }?.name ?: ""
     }
 
@@ -293,7 +295,6 @@ private fun AddPantryItemDialog(
 @Composable
 private fun PantryItemRow(
     name: String,
-    unit: String,
     quantity: Double,
     onInc: () -> Unit,
     onDec: () -> Unit,
@@ -301,10 +302,6 @@ private fun PantryItemRow(
 ) {
     val formattedQuantity = remember(quantity) {
         if (quantity % 1.0 == 0.0) quantity.toInt().toString() else "%.2f".format(quantity)
-    }
-    val quantityWithUnit = remember(formattedQuantity, unit) {
-        val trimmedUnit = unit.trim()
-        if (trimmedUnit.isEmpty()) formattedQuantity else "$formattedQuantity $trimmedUnit"
     }
 
     val dismissState = rememberSwipeToDismissBoxState(
@@ -376,8 +373,8 @@ private fun PantryItemRow(
                     IconButton(onClick = onDec, enabled = quantity > 1.0) {
                         Icon(Icons.Default.Remove, contentDescription = "Decrementar")
                     }
-                    // Show quantity with optional unit (no trailing dash)
-                    Text(quantityWithUnit, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    // Show only numeric quantity (no unit)
+                    Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     IconButton(onClick = onInc) {
                         Icon(Icons.Default.Add, contentDescription = "Incrementar")
                     }

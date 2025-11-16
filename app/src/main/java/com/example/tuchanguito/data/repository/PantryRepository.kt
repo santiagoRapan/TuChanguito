@@ -134,4 +134,14 @@ class PantryRepository(
     suspend fun deleteItem(itemId: Long) {
         withPantry { pantryId -> remote.deleteItem(pantryId, itemId) }
     }
+
+    suspend fun dismissLowStockItem(pantryItemId: Long) {
+        preferences.addDismissedLowStockId(pantryItemId)
+    }
+
+    suspend fun dismissedLowStockIds(): Set<Long> = preferences.getDismissedLowStockIds()
+
+    suspend fun retainDismissedLowStockIds(validIds: Set<Long>) {
+        preferences.retainDismissedLowStockIds(validIds)
+    }
 }

@@ -3,6 +3,7 @@ package com.example.tuchanguito.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.tuchanguito.data.network.model.PaginatedResponseDto
 import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.data.repository.PantryRepository
 import com.example.tuchanguito.data.repository.ShoppingListsRepository
@@ -85,13 +86,23 @@ class HomeViewModel(
                     Pair(listsDeferred.await(), pantryDeferred.await())
                 }
             }
-            _uiState.update { current ->
+            val processedResult: Result<Pair<PaginatedResponseDto<ShoppingListDto>, List<LowStockItemUi>>> =
                 result.fold(
                     onSuccess = { (response, pantryItems) ->
+                        val lowStockRaw = pantryItems.toLowStock()
+                        val dismissedIds = pantryRepository.dismissedLowStockIds()
+                        pantryRepository.retainDismissedLowStockIds(lowStockRaw.map { it.pantryItemId }.toSet())
+                        Result.success(response to lowStockRaw.filterNot { dismissedIds.contains(it.pantryItemId) })
+                    },
+                    onFailure = { throwable -> Result.failure(throwable) }
+                )
+            _uiState.update { current ->
+                processedResult.fold(
+                    onSuccess = { (response, filteredLowStock) ->
                         current.copy(
                             isLoading = false,
                             activeList = response.data.firstOrNull(),
-                            lowStockItems = pantryItems.toLowStock(),
+                            lowStockItems = filteredLowStock,
                             listOptions = response.data.map { ShoppingListOption(it.id, it.name) }
                         )
                     },
@@ -127,6 +138,7 @@ class HomeViewModel(
             _uiState.update { it.copy(isProcessingLowStock = false) }
             result.fold(
                 onSuccess = {
+                    pantryRepository.dismissLowStockItem(pantryItemId)
                     _uiState.update { state ->
                         state.copy(
                             lowStockItems = state.lowStockItems.filterNot { low -> low.pantryItemId == pantryItemId }

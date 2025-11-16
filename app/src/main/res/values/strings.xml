@@ -218,4 +218,9 @@
 
     <!-- Title for editing a product -->
     <string name="edit_product">Editar producto</string>
+
+    <!-- Friendly error when trying to delete a shared list as a non-owner -->
+    <string name="shared_list_delete_not_allowed_title">No se puede eliminar</string>
+    <string name="shared_list_delete_not_allowed">No podés eliminar una lista compartida si no sos el dueño. Si querés dejar de verla, pedile al dueño que deje de compartirla con vos.</string>
+    <string name="accept">Aceptar</string>
 </resources>

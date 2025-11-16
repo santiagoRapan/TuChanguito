@@ -54,6 +54,7 @@ fun ListsScreen(
     var busy by remember { mutableStateOf(false) }
     var togglingId by remember { mutableStateOf<Long?>(null) }
     var pendingDeleteList by remember { mutableStateOf<ShoppingList?>(null) }
+    var showSharedDeleteError by remember { mutableStateOf(false) }
 
     // Strings from resources
     val loadingUserErrorLabel = stringResource(id = R.string.loading_user_error)
@@ -61,6 +62,7 @@ fun ListsScreen(
     val createErrorLabel = stringResource(id = R.string.create_error)
     val renameErrorLabel = stringResource(id = R.string.rename_error)
     val genericErrorLabel = stringResource(id = R.string.generic_error)
+    val sharedDeleteErrorLabel = stringResource(id = R.string.shared_list_delete_not_allowed)
 
     LaunchedEffect(Unit) {
         busy = true
@@ -285,7 +287,14 @@ fun ListsScreen(
                             try {
                                 listsRepository.deleteList(list.id)
                             } catch (t: Throwable) {
-                                snackbarHost.showSnackbar(t.message ?: deleteErrorLabel)
+                                // Si el backend responde con "shopping list not found" asumimos que es una lista compartida
+                                // a la que este usuario ya no tiene permisos de borrado.
+                                val msg = t.message ?: ""
+                                if (msg.contains("shopping list not found", ignoreCase = true)) {
+                                    showSharedDeleteError = true
+                                } else {
+                                    snackbarHost.showSnackbar(msg.ifBlank { deleteErrorLabel })
+                                }
                             } finally {
                                 busy = false
                             }
@@ -296,6 +305,19 @@ fun ListsScreen(
             dismissButton = {
                 TextButton(onClick = { pendingDeleteList = null }) {
                     Text(stringResource(id = R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showSharedDeleteError) {
+        AlertDialog(
+            onDismissRequest = { showSharedDeleteError = false },
+            title = { Text(stringResource(id = R.string.shared_list_delete_not_allowed_title)) },
+            text = { Text(sharedDeleteErrorLabel) },
+            confirmButton = {
+                TextButton(onClick = { showSharedDeleteError = false }) {
+                    Text(stringResource(id = R.string.accept))
                 }
             }
         )

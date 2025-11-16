@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.model.ShoppingList
 import com.example.tuchanguito.R
+import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.launch
 
@@ -93,7 +94,11 @@ fun ListsScreen(
                 onClick = { showCreate = true },
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ColorAccent,
+                    contentColor = Color.White
+                )
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.create_list))
             }

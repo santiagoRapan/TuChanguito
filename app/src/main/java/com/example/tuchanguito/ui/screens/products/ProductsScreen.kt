@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -31,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +66,7 @@ import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
+import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.launch
@@ -183,7 +186,11 @@ fun ProductsScreen() {
                 onClick = { showCreate = true },
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ColorAccent,
+                    contentColor = Color.White
+                )
             ) {
                 Icon(Icons.Default.Add, contentDescription = newProductDesc)
             }
@@ -205,12 +212,20 @@ fun ProductsScreen() {
                 singleLine = true
             )
 
+            val filterChipColors = FilterChipDefaults.filterChipColors(
+                containerColor = ColorAccent.copy(alpha = 0.25f),
+                labelColor = MaterialTheme.colorScheme.onSurface,
+                selectedContainerColor = ColorAccent,
+                selectedLabelColor = Color.White
+            )
+
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
                     FilterChip(
                         selected = selectedCategoryId == null,
                         onClick = { selectedCategoryId = null },
-                        label = { Text(allLabel) }
+                        label = { Text(allLabel) },
+                        colors = filterChipColors
                     )
                 }
                 items(remoteCategories.size) { index ->
@@ -218,7 +233,8 @@ fun ProductsScreen() {
                     FilterChip(
                         selected = selectedCategoryId == cat.id,
                         onClick = { selectedCategoryId = cat.id },
-                        label = { Text(cat.name) }
+                        label = { Text(cat.name) },
+                        colors = filterChipColors
                     )
                 }
             }

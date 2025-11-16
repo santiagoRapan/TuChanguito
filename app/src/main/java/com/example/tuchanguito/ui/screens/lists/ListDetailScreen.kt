@@ -30,6 +30,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
@@ -88,6 +89,7 @@ import com.example.tuchanguito.ui.screens.lists.ListDetailViewModel
 import com.example.tuchanguito.ui.screens.lists.ListDetailViewModelFactory
 import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
 import com.example.tuchanguito.ui.screens.lists.ShareUiState
+import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.flow.collectLatest
@@ -293,7 +295,11 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         onClick = { showAddProductDialog = true },
                         shape = CircleShape,
                         contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ColorAccent,
+                            contentColor = Color.White
+                        )
                     ) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_product_to_list))
                     }

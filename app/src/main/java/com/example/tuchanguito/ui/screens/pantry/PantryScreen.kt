@@ -13,11 +13,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +54,7 @@ import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
+import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorSurface
 
@@ -91,7 +94,11 @@ fun PantryScreen() {
                 onClick = { showAddDialog = true },
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ColorAccent,
+                    contentColor = Color.White
+                )
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_product_to_list))
             }
@@ -112,19 +119,28 @@ fun PantryScreen() {
                 singleLine = true
             )
 
+            val filterChipColors = FilterChipDefaults.filterChipColors(
+                containerColor = ColorAccent.copy(alpha = 0.25f),
+                labelColor = MaterialTheme.colorScheme.onSurface,
+                selectedContainerColor = ColorAccent,
+                selectedLabelColor = Color.White
+            )
+
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 item {
                     FilterChip(
                         selected = uiState.selectedCategoryId == null,
                         onClick = { viewModel.onCategorySelected(null) },
-                        label = { Text(stringResource(id = R.string.all)) }
+                        label = { Text(stringResource(id = R.string.all)) },
+                        colors = filterChipColors
                     )
                 }
                 items(uiState.chipCategories, key = { it.id }) { chip ->
                     FilterChip(
                         selected = uiState.selectedCategoryId == chip.id,
                         onClick = { viewModel.onCategorySelected(chip.id) },
-                        label = { Text(chip.name) }
+                        label = { Text(chip.name) },
+                        colors = filterChipColors
                     )
                 }
             }

@@ -16,15 +16,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddShoppingCart
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,10 +42,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.menuAnchor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -464,24 +463,25 @@ private fun LowStockAddDialog(
                     fontWeight = FontWeight.SemiBold
                 )
                 if (hasLists) {
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = {
-                            if (!isProcessing) expanded = !expanded
-                        }
-                    ) {
-                        val selectedName = listOptions.firstOrNull { it.id == selectedListId }?.name.orEmpty()
+                    val selectedName = listOptions.firstOrNull { it.id == selectedListId }?.name.orEmpty()
+                    Box {
                         OutlinedTextField(
                             value = selectedName,
                             onValueChange = {},
                             readOnly = true,
+                            enabled = !isProcessing,
                             label = { Text(stringResource(id = R.string.home_low_stock_select_list)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowDropDown,
+                                    contentDescription = null
+                                )
+                            },
                             modifier = Modifier
-                                .menuAnchor()
                                 .fillMaxWidth()
+                                .clickable(enabled = !isProcessing) { expanded = true }
                         )
-                        ExposedDropdownMenu(
+                        DropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {

@@ -180,7 +180,7 @@
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
 
     <!-- Strings for ListsScreen -->
-    <string name="my_lists">Mis listas</string>
+    <string name="my_lists">Listas</string>
     <string name="no_lists_found">No tienes listas creadas. Presiona el + para crear una.</string>
     <string name="rename_list_dialog_title">Renombrar lista</string>
     <string name="rename_list_content_description">Renombrar lista</string>

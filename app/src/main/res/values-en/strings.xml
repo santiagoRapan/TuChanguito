@@ -178,7 +178,7 @@
     <string name="home_low_stock_add_button_content_desc">Add low-stock product</string>
 
     <!-- Strings for ListsScreen -->
-    <string name="my_lists">My lists</string>
+    <string name="my_lists">Lists</string>
     <string name="no_lists_found">You don\'t have any lists. Press the + to create one.</string>
     <string name="rename_list_dialog_title">Rename list</string>
     <string name="rename_list_content_description">Rename list</string>

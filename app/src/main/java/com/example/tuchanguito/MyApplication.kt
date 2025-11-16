@@ -85,7 +85,8 @@ class MyApplication : Application() {
             database.shoppingListDao(),
             database.listItemDao(),
             database.productDao(),
-            database.categoryDao()
+            database.categoryDao(),
+            preferences
         )
     }
 

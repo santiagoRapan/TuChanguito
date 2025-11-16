@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 data class ListDetailUiState(
     val isLoading: Boolean = true,
@@ -238,17 +240,9 @@ class ListDetailViewModel(
                 val items = shoppingListsRepository.getItems(listId)
                 val purchased = items.filter { it.purchased }
                 val pending = items.filterNot { it.purchased }
+                val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
 
-                if (options.includePurchasedToPantry && purchased.isNotEmpty()) {
-                    purchased.forEach { item ->
-                        pantryRepository.addOrIncrementItem(
-                            productId = item.product.id,
-                            quantity = item.quantity,
-                            unit = item.unit ?: "u"
-                        )
-                    }
-                }
-
+                var destinationListId: Long? = null
                 if (options.moveNotPurchased && pending.isNotEmpty()) {
                     val targetId = when {
                         !options.newListName.isNullOrBlank() -> {
@@ -263,6 +257,7 @@ class ListDetailViewModel(
                     }
 
                     if (targetId != null) {
+                        destinationListId = targetId
                         pending.forEach { item ->
                             shoppingListsRepository.addItem(
                                 targetId,
@@ -274,14 +269,28 @@ class ListDetailViewModel(
                     }
                 }
 
-                val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
-                // Save the list and its items into local history so it can be opened later without calling the API
-                val itemsForSave = items // items is already fetched above
-                historyRepository.save(summaryList.id, summaryList.name, itemsForSave)
+                if (options.includePurchasedToPantry && purchased.isNotEmpty()) {
+                    purchased.forEach { item ->
+                        pantryRepository.addOrIncrementItem(
+                            productId = item.product.id,
+                            quantity = item.quantity,
+                            unit = item.unit ?: "u",
+                            metadata = item.metadata
+                        )
+                    }
+                }
+
+                val metadata = buildJsonObject {
+                    put("includePurchasedToPantry", options.includePurchasedToPantry)
+                    put("movedPending", options.moveNotPurchased)
+                    destinationListId?.let { put("targetListId", it) }
+                    options.newListName?.let { put("newListName", it) }
+                }
+                shoppingListsRepository.purchaseList(listId, metadata)
+
+                historyRepository.save(summaryList.id, summaryList.name, items)
                 if (summaryList.recurring) {
                     shoppingListsRepository.resetList(listId)
-                } else {
-                    shoppingListsRepository.deleteList(listId)
                 }
             }
             _uiState.update { it.copy(isProcessing = false) }

@@ -30,6 +30,9 @@ class AuthRepository(
         val token = remote.login(email, password).token
         preferences.setAuthToken(token)
         preferences.setRememberMe(remember)
+        runCatching { remote.getProfile() }
+            .onSuccess { profile -> preferences.setCurrentUserId(profile.id) }
+            .onFailure { preferences.setCurrentUserId(null) }
     }
 
     suspend fun resendVerification(email: String): Result<Unit> = runCatching {

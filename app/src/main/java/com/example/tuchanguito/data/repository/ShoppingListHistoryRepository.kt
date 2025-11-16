@@ -1,5 +1,6 @@
 package com.example.tuchanguito.data.repository
 
+import com.example.tuchanguito.data.PreferencesManager
 import com.example.tuchanguito.data.db.ShoppingListDao
 import com.example.tuchanguito.data.db.ListItemDao
 import com.example.tuchanguito.data.db.ProductDao
@@ -9,21 +10,35 @@ import com.example.tuchanguito.data.model.ListItem
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.data.network.model.ListItemDto
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 
 class ShoppingListHistoryRepository(
     private val shoppingListDao: ShoppingListDao,
     private val listItemDao: ListItemDao,
     private val productDao: ProductDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val preferences: PreferencesManager
 ) {
 
-    fun observeHistory(): Flow<List<ShoppingList>> = shoppingListDao.observeArchived()
+    fun observeHistory(): Flow<List<ShoppingList>> =
+        combine(
+            preferences.currentUserId,
+            shoppingListDao.observeArchived()
+        ) { userId, lists ->
+            userId?.let { uid ->
+                lists.filter { it.ownerUserId == uid }
+            } ?: emptyList()
+        }
 
     suspend fun save(id: Long, title: String, items: List<ListItemDto>) {
+        val ownerId = preferences.currentUserId.firstOrNull()
         val entity = ShoppingList(
             id = id,
             title = title,
+            ownerUserId = ownerId,
             archived = true
         )
         // Save the shopping list header

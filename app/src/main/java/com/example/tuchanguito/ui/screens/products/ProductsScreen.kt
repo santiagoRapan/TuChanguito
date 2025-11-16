@@ -1,6 +1,5 @@
 package com.example.tuchanguito.ui.screens.products
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,13 +32,9 @@ import androidx.core.content.FileProvider
 import android.net.Uri
 import android.os.Environment
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.serialization.json.JsonElement
@@ -48,6 +42,8 @@ import androidx.compose.ui.draw.clip
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -372,7 +368,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -426,6 +422,24 @@ fun ProductsScreen() {
                         try {
                             val thresholdValue = lowStockThreshold.toIntOrNull() ?: DEFAULT_LOW_STOCK_THRESHOLD
                             val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
+                            // Construir ProductDto actualizado optimista a partir de prod y cambios locales
+                            val newMetadata = buildJsonObject {
+                                put("price", JsonPrimitive(priceText.toDouble()))
+                                put("unit", JsonPrimitive(unit.trim()))
+                                put("lowStockThreshold", JsonPrimitive(thresholdValue))
+                                existingImageUri?.takeIf { it.isNotBlank() }?.let { uri -> put("imageUri", JsonPrimitive(uri)) }
+                            }
+                            val optimistic = ProductDto(
+                                id = prod.id,
+                                name = name.trim(),
+                                metadata = newMetadata,
+                                createdAt = prod.createdAt,
+                                updatedAt = prod.updatedAt,
+                                category = remoteCategories.firstOrNull { it.id == finalCategoryId }
+                            )
+                            // Update optimista local
+                            remoteProducts = remoteProducts.map { if (it.id == prod.id) optimistic else it }
+                            // Llamada real a la API / repositorio
                             catalogRepository.updateProduct(
                                 prod.id,
                                 name.trim(),
@@ -433,11 +447,17 @@ fun ProductsScreen() {
                                 unit.trim(),
                                 finalCategoryId,
                                 thresholdValue,
-                                existingImageUri // preserve current image
+                                existingImageUri
                             )
                             editingProductId = null
-                            remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
-                            remoteCategories = catalogRepository.categoriesForQuery(query)
+                            // Refrescar categorías si cambió la categoría
+                            if (optimistic.category?.id != prod.category?.id) {
+                                remoteCategories = catalogRepository.categoriesForQuery(query)
+                            }
+                            // Si hay filtros activos, refrescar productos para asegurar coherencia
+                            if (selectedCategoryId != null || query.isNotBlank()) {
+                                remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
+                            }
                         } catch (t: Throwable) {
                             snack.showSnackbar(t.message ?: createErrorLabel)
                         } finally { busy = false }
@@ -464,7 +484,7 @@ fun ProductsScreen() {
                             onValueChange = { input -> categoryInput = input; categoryId = null },
                             label = { Text(stringResource(id = R.string.category_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             remoteCategories.forEach { c ->
@@ -568,9 +588,8 @@ private fun ProductCard(
 
 // Remove unused helpers and keep only the image file creator
 private fun createTempImageFile(context: android.content.Context): File {
-    val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: context.filesDir
-    return File.createTempFile("PROD_${'$'}ts", ".jpg", dir)
+    return File.createTempFile("PROD_" + System.currentTimeMillis(), ".jpg", dir)
 }
 
 private const val DEFAULT_LOW_STOCK_THRESHOLD = 2

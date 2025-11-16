@@ -390,7 +390,7 @@ fun ProductsScreen() {
                 }, enabled = valid && !busy) { Text(stringResource(id = R.string.save_changes)) }
             },
             dismissButton = { TextButton(onClick = { if (!busy) editingProductId = null }) { Text(stringResource(id = R.string.cancel)) } },
-            title = { Text(stringResource(id = R.string.new_product)) },
+            title = { Text(stringResource(id = R.string.edit_product)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)

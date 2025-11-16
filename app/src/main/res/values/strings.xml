@@ -214,4 +214,7 @@
     <string name="error_shared_list_finalize_not_allowed">
         You are not allowed to finalize a list shared with you. / No tienes permitido finalizar una lista que fue compartida contigo.
     </string>
+
+    <!-- Title for editing a product -->
+    <string name="edit_product">Editar producto</string>
 </resources>

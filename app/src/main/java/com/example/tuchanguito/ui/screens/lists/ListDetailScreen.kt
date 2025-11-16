@@ -92,6 +92,11 @@ import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +116,10 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Determinar si la lista pertenece al usuario actual (owner != null)
+    val isOwner = uiState.list?.owner != null
 
     var showAddProductDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
@@ -191,39 +200,59 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                     CircularProgressIndicator()
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp)
-                ) {
-                    sortedCategories.forEach { categoryName ->
-                        val itemsInCategory = groupedItems[categoryName].orEmpty()
-                        if (itemsInCategory.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = categoryName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                            items(itemsInCategory, key = { it.id }) { item ->
-                                ListItemCard(
-                                    item = item,
-                                    onQuantityChange = { newQuantity ->
-                                        viewModel.updateItemQuantity(
-                                            item.id,
-                                            item.product.id,
-                                            newQuantity,
-                                            item.unit ?: item.product.unitFromMetadata()
-                                        )
-                                    },
-                                    onRequestDelete = { itemToDeleteId = item.id },
-                                    onToggleAcquired = { purchased -> viewModel.toggleItem(item.id, purchased) }
-                                )
+                if (uiState.items.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .border(androidx.compose.foundation.BorderStroke(1.dp, Color.Black), shape = RoundedCornerShape(8.dp))
+                                .background(Color.Transparent, shape = RoundedCornerShape(8.dp))
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.list_empty_message),
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(4.dp)
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp)
+                    ) {
+                        sortedCategories.forEach { categoryName ->
+                            val itemsInCategory = groupedItems[categoryName].orEmpty()
+                            if (itemsInCategory.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = categoryName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                items(itemsInCategory, key = { it.id }) { item ->
+                                    ListItemCard(
+                                        item = item,
+                                        onQuantityChange = { newQuantity ->
+                                            viewModel.updateItemQuantity(
+                                                item.id,
+                                                item.product.id,
+                                                newQuantity,
+                                                item.unit ?: item.product.unitFromMetadata()
+                                            )
+                                        },
+                                        onRequestDelete = { itemToDeleteId = item.id },
+                                        onToggleAcquired = { purchased -> viewModel.toggleItem(item.id, purchased) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -240,7 +269,21 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         Text("$%.2f".format(totalCost), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
 
-                    Button(onClick = { showFinalizeDialog = true }, enabled = !uiState.isProcessing) {
+                    Button(
+                        onClick = {
+                            if (isOwner) {
+                                showFinalizeDialog = true
+                            } else {
+                                // Mostrar mensaje claro cuando intenta finalizar una lista compartida
+                                coroutineScope.launch {
+                                    snackbarHost.showSnackbar(
+                                        context.getString(R.string.error_shared_list_finalize_not_allowed)
+                                    )
+                                }
+                            }
+                        },
+                        enabled = !uiState.isProcessing
+                    ) {
                         Text(stringResource(id = R.string.finalize))
                     }
 

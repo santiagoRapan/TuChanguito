@@ -317,7 +317,7 @@ fun ShoppingListCard(
                 Text(list.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row {
                     IconButton(onClick = onRename, enabled = !busy) {
-                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.rename_list_content_description))
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.rename_list_content_description), tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = onDelete, enabled = !busy) {
                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_list_content_description), tint = MaterialTheme.colorScheme.error)

@@ -32,8 +32,9 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = runCatching {
+                // Traemos la lista más recientemente actualizada a la que el usuario tiene acceso
                 repository.getLists(
-                    owner = true,
+                    owner = null,
                     sortBy = "updatedAt",
                     order = "DESC",
                     perPage = 1

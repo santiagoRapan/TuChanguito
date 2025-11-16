@@ -13,7 +13,8 @@ class ShoppingListsLocalRepository(
     fun observeLists(): Flow<List<ShoppingList>> = shoppingListDao.observeActive()
 
     suspend fun refreshLists(): Result<Unit> = runCatching {
-        val page = remote.getLists(owner = true, perPage = 200)
+        // Traemos todas las listas accesibles para el usuario (propias y compartidas)
+        val page = remote.getLists(owner = null, perPage = 200)
         val entities = page.data.map { it.toEntity() }
         shoppingListDao.clearActive()
         entities.forEach { shoppingListDao.upsert(it) }
@@ -47,6 +48,7 @@ class ShoppingListsLocalRepository(
     }
 
     private suspend fun existsListWithName(name: String): Boolean = runCatching {
+        // Sólo validamos nombres contra listas propias del usuario
         remote.getLists(name = name, owner = true, page = 1, perPage = 1).data.any {
             it.name.equals(name, ignoreCase = true)
         }

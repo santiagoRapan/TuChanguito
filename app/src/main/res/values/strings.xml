@@ -57,6 +57,7 @@
     <string name="search">Buscar</string>
     <string name="all">Todo</string>
     <string name="no_products_in_pantry">Sin productos en la alacena</string>
+    <string name="pantry_empty_message">No tienes productos en la alacena. Ve a comprar</string>
     <string name="add_to_pantry">Agregar a la alacena</string>
     <string name="product">Producto</string>
     <string name="share_list_chooser">Compartir lista</string>
@@ -119,7 +120,7 @@
 
     <!-- Additional app strings -->
     <string name="products_title">Productos</string>
-    <string name="no_products">No hay productos</string>
+    <string name="no_products">No hay productos. Presiona + para crear uno</string>
     <string name="create_error">No se pudo crear</string>
 
     <string name="processing">Procesando…</string>
@@ -179,7 +180,7 @@
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
 
     <!-- Strings for ListsScreen -->
-    <string name="my_lists">Mis listas</string>
+    <string name="my_lists">Listas</string>
     <string name="no_lists_found">No tienes listas creadas. Presiona el + para crear una.</string>
     <string name="rename_list_dialog_title">Renombrar lista</string>
     <string name="rename_list_content_description">Renombrar lista</string>
@@ -197,6 +198,7 @@
 
     <!-- ListDetailScreen strings -->
     <string name="price_each_fmt">$%.2f c/u</string>
+    <string name="list_empty_message">Lista vacía. Presiona el botón + para agregar productos</string>
     <string name="decrement_desc">Disminuir</string>
     <string name="increment_desc">Incrementar</string>
     <string name="delete_desc">Eliminar</string>
@@ -208,4 +210,12 @@
     <string name="confirm_delete_item_message">¿Deseás eliminar este producto de la lista?</string>
     <string name="confirm_delete_list_message">¿Deseás eliminar la lista "%1$s"?</string>
     <string name="delete_action">Eliminar</string>
+
+    <!-- Error when trying to finalize a shared list as a non-owner -->
+    <string name="error_shared_list_finalize_not_allowed">
+        You are not allowed to finalize a list shared with you. / No tienes permitido finalizar una lista que fue compartida contigo.
+    </string>
+
+    <!-- Title for editing a product -->
+    <string name="edit_product">Editar producto</string>
 </resources>

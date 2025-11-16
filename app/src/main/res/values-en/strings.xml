@@ -55,6 +55,7 @@
     <string name="search">Search</string>
     <string name="all">All</string>
     <string name="no_products_in_pantry">No products in the pantry</string>
+    <string name="pantry_empty_message">You have no products in the pantry. Go shopping</string>
     <string name="add_to_pantry">Add to pantry</string>
     <string name="product">Product</string>
     <string name="share_list_chooser">Share list</string>
@@ -117,7 +118,7 @@
 
     <!-- Additional app strings -->
     <string name="products_title">Products</string>
-    <string name="no_products">No products</string>
+    <string name="no_products">No products. Press + to create one</string>
     <string name="create_error">Couldn\'t create</string>
 
     <string name="processing">Processing…</string>
@@ -177,7 +178,7 @@
     <string name="home_low_stock_add_button_content_desc">Add low-stock product</string>
 
     <!-- Strings for ListsScreen -->
-    <string name="my_lists">My lists</string>
+    <string name="my_lists">Lists</string>
     <string name="no_lists_found">You don\'t have any lists. Press the + to create one.</string>
     <string name="rename_list_dialog_title">Rename list</string>
     <string name="rename_list_content_description">Rename list</string>
@@ -194,6 +195,7 @@
 
     <!-- New strings -->
     <string name="price_each_fmt">$%.2f each</string>
+    <string name="list_empty_message">Empty list. Press the + button to add products</string>
     <string name="decrement_desc">Decrease</string>
     <string name="increment_desc">Increase</string>
     <string name="delete_desc">Delete</string>
@@ -205,4 +207,5 @@
     <string name="confirm_delete_item_message">Do you want to remove this product from the list?</string>
     <string name="confirm_delete_list_message">Do you want to delete the list "%1$s"?</string>
     <string name="delete_action">Delete</string>
+    <string name="edit_product">Edit product</string>
 </resources>

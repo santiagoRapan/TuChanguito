@@ -233,4 +233,6 @@
     <!-- Purchase progress strings -->
     <string name="purchase_progress_title">Progreso de la compra</string>
     <string name="purchase_progress_fmt">%1$d de %2$d comprados (%3$d%%)</string>
+
+    <string name="take_photo">Sacar foto</string>
 </resources>

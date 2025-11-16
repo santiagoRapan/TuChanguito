@@ -1,19 +1,7 @@
 package com.example.tuchanguito.ui.screens.products
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,54 +9,45 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.MyApplication
+import coil.compose.AsyncImage
 import com.example.tuchanguito.R
+import com.example.tuchanguito.MyApplication
 import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import android.net.Uri
+import android.os.Environment
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.serialization.json.JsonElement
+import androidx.compose.ui.draw.clip
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -325,6 +304,21 @@ fun ProductsScreen() {
         var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
+        // New: image capture state
+        var imageUri by rememberSaveable { mutableStateOf<String?>(null) }
+        val ctx = LocalContext.current
+        var tempCaptureUri by remember { mutableStateOf<Uri?>(null) }
+        val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) imageUri = tempCaptureUri?.toString()
+            tempCaptureUri = null
+        }
+        fun startCamera() {
+            val file = createTempImageFile(ctx)
+            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.provider", file)
+            tempCaptureUri = uri
+            takePicture.launch(uri)
+        }
+
         val valid = name.isNotBlank() &&
             (priceText.toDoubleOrNull() != null) &&
             unit.isNotBlank() &&
@@ -345,7 +339,8 @@ fun ProductsScreen() {
                                 priceText.toDouble(),
                                 unit.trim(),
                                 finalCategoryId,
-                                thresholdValue
+                                thresholdValue,
+                                imageUri // pass photo
                             )
                             showCreate = false
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
@@ -369,6 +364,7 @@ fun ProductsScreen() {
                         label = { Text(stringResource(id = R.string.low_stock_threshold_label)) },
                         singleLine = true
                     )
+                    // Category selector (unchanged)
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
@@ -384,6 +380,18 @@ fun ProductsScreen() {
                             }
                         }
                     }
+                    // Photo selector and preview
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(onClick = { startCamera() }, enabled = !busy) { Text(stringResource(id = R.string.take_photo)) }
+                        if (imageUri != null) {
+                            AsyncImage(
+                                model = imageUri,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
                 }
             }
         )
@@ -393,15 +401,16 @@ fun ProductsScreen() {
         var name by rememberSaveable { mutableStateOf(prod.name) }
         var priceText by rememberSaveable {
             val price = prod.metadata.doubleValue("price")
-            mutableStateOf(price.toString())
+            mutableStateOf<String>(price.toString())
         }
         var unit by rememberSaveable { mutableStateOf(prod.metadata.stringValue("unit")) }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(prod.category?.id) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var lowStockThreshold by rememberSaveable {
             val threshold = prod.metadata.intValue("lowStockThreshold", DEFAULT_LOW_STOCK_THRESHOLD)
-            mutableStateOf(threshold.toString())
+            mutableStateOf<String>(threshold.toString())
         }
+        val existingImageUri = try { prod.metadata?.jsonObject?.get("imageUri")?.jsonPrimitive?.contentOrNull } catch (_: Throwable) { null }
         var busy by remember { mutableStateOf(false) }
         val valid = name.isNotBlank() &&
             (priceText.toDoubleOrNull() != null) &&
@@ -423,7 +432,8 @@ fun ProductsScreen() {
                                 priceText.toDouble(),
                                 unit.trim(),
                                 finalCategoryId,
-                                thresholdValue
+                                thresholdValue,
+                                existingImageUri // preserve current image
                             )
                             editingProductId = null
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
@@ -497,7 +507,9 @@ private fun ProductCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Card with white background (barras blancas) and no price line under the name
+    val image = try {
+        product.metadata?.jsonObject?.get("imageUri")?.jsonPrimitive?.contentOrNull
+    } catch (_: Throwable) { null }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -514,12 +526,24 @@ private fun ProductCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = product.name,
-                    fontWeight = FontWeight.Bold
-                )
-                // Price line intentionally removed per request
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                if (image != null) {
+                    AsyncImage(
+                        model = image,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = product.name,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -542,26 +566,26 @@ private fun ProductCard(
     }
 }
 
-// Metadata helpers use Any? -> Map<*,*> to avoid serialization dependency
-private fun Any?.doubleValue(key: String, default: Double = 0.0): Double {
-    val map = this as? Map<*, *> ?: return default
-    val v = map[key] ?: return default
-    return (v as? Number)?.toDouble() ?: v.toString().toDoubleOrNull() ?: default
-}
-
-private fun Any?.stringValue(key: String): String {
-    val map = this as? Map<*, *> ?: return ""
-    val v = map[key] ?: return ""
-    return v.toString().ifBlank { "" }
-}
-
-private fun Any?.intValue(key: String, default: Int = DEFAULT_LOW_STOCK_THRESHOLD): Int {
-    val map = this as? Map<*, *> ?: return default
-    val v = map[key] ?: return default
-    return when (v) {
-        is Number -> v.toInt()
-        else -> v.toString().toIntOrNull() ?: default
-    }
+// Remove unused helpers and keep only the image file creator
+private fun createTempImageFile(context: android.content.Context): File {
+    val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: context.filesDir
+    return File.createTempFile("PROD_${'$'}ts", ".jpg", dir)
 }
 
 private const val DEFAULT_LOW_STOCK_THRESHOLD = 2
+
+// Json helpers on JsonElement?
+private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double = try {
+    val v = this?.jsonObject?.get(key)?.jsonPrimitive ?: return default
+    v.doubleOrNull ?: v.contentOrNull?.toDoubleOrNull() ?: default
+} catch (_: Throwable) { default }
+
+private fun JsonElement?.stringValue(key: String): String = try {
+    this?.jsonObject?.get(key)?.jsonPrimitive?.contentOrNull?.ifBlank { "" } ?: ""
+} catch (_: Throwable) { "" }
+
+private fun JsonElement?.intValue(key: String, default: Int = DEFAULT_LOW_STOCK_THRESHOLD): Int = try {
+    val v = this?.jsonObject?.get(key)?.jsonPrimitive ?: return default
+    v.intOrNull ?: v.contentOrNull?.toIntOrNull() ?: default
+} catch (_: Throwable) { default }

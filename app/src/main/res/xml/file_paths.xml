@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Allow camera to write into app-specific Pictures/ directory on external storage -->
+    <external-files-path
+        name="images"
+        path="Pictures/" />
+    <!-- Fallback to internal files dir if needed -->
+    <files-path
+        name="internal_images"
+        path="" />
+</paths>
+

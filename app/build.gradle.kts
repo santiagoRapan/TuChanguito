@@ -79,9 +79,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     // imagenes --> chequear si estamos usando otras...
-//    implementation(libs.coil.compose)
-//    implementation(libs.coil.gif)
-//    implementation(libs.coil.network.okhttp)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
 
     // Material icons extended for ContentCopy icon

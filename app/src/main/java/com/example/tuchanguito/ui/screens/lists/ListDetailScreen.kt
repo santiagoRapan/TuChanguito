@@ -103,7 +103,6 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
@@ -404,111 +403,6 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ListItemCard(
-    item: ListItemDto,
-    onQuantityChange: (Double) -> Unit,
-    onRequestDelete: () -> Unit,
-    onToggleAcquired: (Boolean) -> Unit
-) {
-    val product = item.product
-    val formattedQuantity = remember(item.quantity) {
-        if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else "%.2f".format(item.quantity)
-    }
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { target ->
-            if (target == SwipeToDismissBoxValue.EndToStart) {
-                onRequestDelete()
-                false
-            } else {
-                false
-            }
-        }
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true,
-        backgroundContent = {
-            val fgColor = MaterialTheme.colorScheme.onErrorContainer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = fgColor
-                        )
-                    }
-                }
-            }
-        }
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Checkbox(checked = item.purchased, onCheckedChange = onToggleAcquired)
-                Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = product.name,
-                        fontWeight = FontWeight.Bold,
-                        textDecoration = if (item.purchased) TextDecoration.LineThrough else TextDecoration.None
-                    )
-                    // Show only the price number (no "c/u")
-                    Text(
-                        text = "$%.2f".format(product.priceFromMetadata()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (item.quantity > 1) onQuantityChange(item.quantity - 1) else onRequestDelete() }) {
-                        Icon(Icons.Default.Remove, contentDescription = "Decrementar")
-                    }
-                    Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    IconButton(onClick = { onQuantityChange(item.quantity + 1) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Incrementar")
-                    }
-                    IconButton(onClick = onRequestDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun AddItemDialog(
     products: List<Product>,
     categories: List<Category>,
@@ -783,6 +677,7 @@ private fun FinalizeDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CombinedCategoriesCard(
     sortedCategories: List<String>,

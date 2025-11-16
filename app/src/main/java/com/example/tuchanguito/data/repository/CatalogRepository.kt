@@ -17,6 +17,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
 
 class CatalogRepository(
     private val categoryDao: CategoryDao,
@@ -80,9 +81,10 @@ class CatalogRepository(
         price: Double,
         unit: String,
         categoryId: Long?,
-        lowStockThreshold: Int
+        lowStockThreshold: Int,
+        imageUri: String? = null // new optional media
     ): Long {
-        val metadata = metadataJson(price, unit, lowStockThreshold)
+        val metadata = metadataJson(price, unit, lowStockThreshold, imageUri)
         val dto = productRemote.createProduct(name, categoryId, metadata)
         productDao.upsert(dto.toEntity(price, unit, lowStockThreshold))
         return dto.id
@@ -94,9 +96,10 @@ class CatalogRepository(
         price: Double,
         unit: String,
         categoryId: Long?,
-        lowStockThreshold: Int
+        lowStockThreshold: Int,
+        imageUri: String? = null // new optional media
     ) {
-        val metadata = metadataJson(price, unit, lowStockThreshold)
+        val metadata = metadataJson(price, unit, lowStockThreshold, imageUri)
         val dto = productRemote.updateProduct(id, name, categoryId, metadata)
         productDao.upsert(dto.toEntity(price, unit, lowStockThreshold))
     }
@@ -106,13 +109,12 @@ class CatalogRepository(
         productDao.getById(id)?.let { productDao.delete(it) }
     }
 
-    private fun metadataJson(price: Double, unit: String, lowStockThreshold: Int): JsonObject =
+    private fun metadataJson(price: Double, unit: String, lowStockThreshold: Int, imageUri: String? = null): JsonObject =
         buildJsonObject {
             put("price", price)
             put("unit", unit)
-            if (lowStockThreshold > 0) {
-                put("lowStockThreshold", lowStockThreshold)
-            }
+            if (lowStockThreshold > 0) put("lowStockThreshold", lowStockThreshold)
+            imageUri?.takeIf { it.isNotBlank() }?.let { put("imageUri", JsonPrimitive(it)) }
         }
 
     private fun ProductDto.toEntity(

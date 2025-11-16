@@ -1,91 +1,26 @@
 package com.example.tuchanguito.data.repository
 
-import com.example.tuchanguito.data.PreferencesManager
-import com.example.tuchanguito.data.db.ShoppingListDao
-import com.example.tuchanguito.data.db.ListItemDao
-import com.example.tuchanguito.data.db.ProductDao
-import com.example.tuchanguito.data.db.CategoryDao
-import com.example.tuchanguito.data.model.ShoppingList
-import com.example.tuchanguito.data.model.ListItem
-import com.example.tuchanguito.data.model.Product
-import com.example.tuchanguito.data.network.model.ListItemDto
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
+import com.example.tuchanguito.data.network.PurchasesRemoteDataSource
+import com.example.tuchanguito.data.network.model.PurchaseDto
+import com.example.tuchanguito.data.network.model.ShoppingListDto
 
 class ShoppingListHistoryRepository(
-    private val shoppingListDao: ShoppingListDao,
-    private val listItemDao: ListItemDao,
-    private val productDao: ProductDao,
-    private val categoryDao: CategoryDao,
-    private val preferences: PreferencesManager
+    private val remote: PurchasesRemoteDataSource
 ) {
 
-    fun observeHistory(): Flow<List<ShoppingList>> =
-        combine(
-            preferences.currentUserId,
-            shoppingListDao.observeArchived()
-        ) { userId, lists ->
-            userId?.let { uid ->
-                lists.filter { it.ownerUserId == uid }
-            } ?: emptyList()
-        }
+    suspend fun getHistory(
+        page: Int = 1,
+        perPage: Int = 20,
+        sortBy: String? = "createdAt",
+        order: String? = "DESC"
+    ): List<PurchaseDto> = remote.getPurchases(
+        page = page,
+        perPage = perPage,
+        sortBy = sortBy,
+        order = order
+    ).data
 
-    suspend fun save(id: Long, title: String, items: List<ListItemDto>) {
-        val ownerId = preferences.currentUserId.firstOrNull()
-        val entity = ShoppingList(
-            id = id,
-            title = title,
-            ownerUserId = ownerId,
-            archived = true
-        )
-        // Save the shopping list header
-        shoppingListDao.upsert(entity)
+    suspend fun getPurchase(purchaseId: Long): PurchaseDto = remote.getPurchase(purchaseId)
 
-        // Save products locally (best-effort) and items
-        items.forEach { dto ->
-            val p = dto.product
-            val prodEntity = Product(
-                id = p.id,
-                name = p.name,
-                price = 0.0,
-                categoryId = p.category?.id,
-                unit = ""
-            )
-            try {
-                productDao.upsert(prodEntity)
-            } catch (_: Throwable) {
-                // best effort: ignore failures to persist product
-            }
-
-            val itemEntity = ListItem(
-                id = dto.id,
-                listId = id,
-                productId = dto.product.id,
-                quantity = dto.quantity.toInt(),
-                acquired = dto.purchased
-            )
-            try {
-                listItemDao.upsert(itemEntity)
-            } catch (_: Throwable) {
-                // ignore
-            }
-        }
-    }
-
-    suspend fun getArchivedList(listId: Long): ShoppingList? {
-        return shoppingListDao.observeById(listId).first()
-    }
-
-    suspend fun getItemsForList(listId: Long): List<ListItem> {
-        return listItemDao.observeForList(listId).first()
-    }
-
-    suspend fun getProductById(productId: Long): Product? = productDao.getById(productId)
-
-    suspend fun getCategoryName(categoryId: Long?): String? = categoryId?.let { id ->
-        try { categoryDao.getById(id)?.name } catch (_: Throwable) { null }
-    }
+    suspend fun restorePurchase(purchaseId: Long): ShoppingListDto = remote.restorePurchase(purchaseId)
 }

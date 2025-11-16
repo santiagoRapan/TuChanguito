@@ -192,6 +192,7 @@
     <string name="list_history_title">Historial de listas</string>
     <string name="list_history_empty">Todavía no hay historial de listas.</string>
     <string name="list_history_hint">Vuelve a abrir esta lista para reutilizarla.</string>
+    <string name="list_history_purchase_summary">%1$d productos - Comprada el %2$s</string>
     <string name="view_history">Ver historial</string>
 
     <!-- ListDetailScreen strings -->

@@ -104,8 +104,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
             shoppingListsRepository = app.shoppingListsRepository,
             productRepository = app.productRepository,
             categoryRepository = app.categoryRepository,
-            pantryRepository = app.pantryRepository,
-            historyRepository = app.shoppingListHistoryRepository
+            pantryRepository = app.pantryRepository
         )
     )
 

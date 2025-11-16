@@ -11,7 +11,6 @@ import com.example.tuchanguito.data.network.core.DataSourceException
 import com.example.tuchanguito.data.repository.CategoryRepository
 import com.example.tuchanguito.data.repository.PantryRepository
 import com.example.tuchanguito.data.repository.ProductRepository
-import com.example.tuchanguito.data.repository.ShoppingListHistoryRepository
 import com.example.tuchanguito.data.repository.ShoppingListsRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -61,8 +60,7 @@ class ListDetailViewModel(
     private val shoppingListsRepository: ShoppingListsRepository,
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository,
-    private val pantryRepository: PantryRepository,
-    private val historyRepository: ShoppingListHistoryRepository
+    private val pantryRepository: PantryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ListDetailUiState())
@@ -190,12 +188,7 @@ class ListDetailViewModel(
                         },
                         onFailure = { error ->
                             if (error is DataSourceException && error.statusCode == 409) {
-                                val handled = incrementExistingItem(resolvedId, normalizedUnit)
-                                if (handled) {
-                                    _events.emit(ListDetailEvent.ItemAdded)
-                                } else {
-                                    _events.emit(ListDetailEvent.ShowSnackbar("Existing item couldn't be updated."))
-                                }
+                                _events.emit(ListDetailEvent.ShowSnackbar("Este producto ya existe en la lista. Modifique su cantidad desde el ítem existente."))
                             } else {
                                 _events.emit(ListDetailEvent.ShowSnackbar(error.message ?: "Error adding item"))
                             }
@@ -288,7 +281,6 @@ class ListDetailViewModel(
                 }
                 shoppingListsRepository.purchaseList(listId, metadata)
 
-                historyRepository.save(summaryList.id, summaryList.name, items)
                 if (summaryList.recurring) {
                     shoppingListsRepository.resetList(listId)
                 }
@@ -326,28 +318,6 @@ class ListDetailViewModel(
         return created.id
     }
 
-    private suspend fun incrementExistingItem(productId: Long, fallbackUnit: String): Boolean {
-        val currentItems = _uiState.value.items
-        val cached = currentItems.firstOrNull { it.product.id == productId }
-        val target = cached ?: run {
-            val refreshed = runCatching { shoppingListsRepository.getItems(listId) }.getOrNull() ?: return false
-            _uiState.update { it.copy(items = refreshed) }
-            refreshed.firstOrNull { it.product.id == productId }
-        } ?: return false
-
-        val updated = shoppingListsRepository.updateItem(
-            listId,
-            target.id,
-            productId,
-            target.quantity + 1,
-            target.unit?.takeIf { it.isNotBlank() } ?: fallbackUnit
-        )
-        _uiState.update { state ->
-            state.copy(items = state.items.map { if (it.id == updated.id) updated else it })
-        }
-        return true
-    }
-
     private data class Quadruple<A, B, C, D>(
         val first: A,
         val second: B,
@@ -361,8 +331,7 @@ class ListDetailViewModelFactory(
     private val shoppingListsRepository: ShoppingListsRepository,
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository,
-    private val pantryRepository: PantryRepository,
-    private val historyRepository: ShoppingListHistoryRepository
+    private val pantryRepository: PantryRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ListDetailViewModel::class.java)) {
@@ -372,8 +341,7 @@ class ListDetailViewModelFactory(
                 shoppingListsRepository,
                 productRepository,
                 categoryRepository,
-                pantryRepository,
-                historyRepository
+                pantryRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

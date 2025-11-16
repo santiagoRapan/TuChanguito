@@ -7,6 +7,7 @@ import com.example.tuchanguito.data.network.CategoryRemoteDataSource
 import com.example.tuchanguito.data.network.AuthRemoteDataSource
 import com.example.tuchanguito.data.network.PantryRemoteDataSource
 import com.example.tuchanguito.data.network.ProductRemoteDataSource
+import com.example.tuchanguito.data.network.PurchasesRemoteDataSource
 import com.example.tuchanguito.data.network.ShoppingListsRemoteDataSource
 import com.example.tuchanguito.data.network.api.RetrofitClient
 import com.example.tuchanguito.data.network.core.SessionManager
@@ -80,14 +81,12 @@ class MyApplication : Application() {
         )
     }
 
+    private val purchasesRemoteDataSource: PurchasesRemoteDataSource by lazy {
+        PurchasesRemoteDataSource(RetrofitClient.getPurchasesApiService())
+    }
+
     val shoppingListHistoryRepository: ShoppingListHistoryRepository by lazy {
-        ShoppingListHistoryRepository(
-            database.shoppingListDao(),
-            database.listItemDao(),
-            database.productDao(),
-            database.categoryDao(),
-            preferences
-        )
+        ShoppingListHistoryRepository(purchasesRemoteDataSource)
     }
 
     val shoppingListsLocalRepository: ShoppingListsLocalRepository by lazy {

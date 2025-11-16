@@ -12,6 +12,10 @@ class PantryRepository(
     private val preferences: PreferencesManager
 ) {
 
+    companion object {
+        private const val DEFAULT_PANTRY_NAME = "Mi alacena"
+    }
+
     private var cachedPantry: Pair<Long?, Long?>? = null
 
     fun clearCache() {
@@ -20,20 +24,29 @@ class PantryRepository(
 
     private suspend fun resolvePantryId(): Long {
         val userId = preferences.currentUserId.firstOrNull()
-        val cached = cachedPantry
-        if (cached != null && cached.first == userId && cached.second != null) {
-            return cached.second!!
+        cachedPantry?.let { (cachedUser, cachedId) ->
+            if (cachedUser == userId && cachedId != null) {
+                return cachedId
+            }
         }
+
         val saved = preferences.getCurrentPantryIdForUser(userId)
-        if (saved != null && runCatching { remote.getPantry(saved) }.isSuccess) {
-            cachedPantry = userId to saved
-            return saved
+        if (saved != null) {
+            val pantry = runCatching { remote.getPantry(saved) }.getOrNull()
+            if (pantry != null) {
+                cachedPantry = userId to pantry.id
+                return pantry.id
+            } else {
+                preferences.setCurrentPantryIdForUser(userId, null)
+            }
         }
-        val fallbackName = "Alacena ${System.currentTimeMillis() % 10_000}"
-        val created = remote.createPantry(fallbackName, metadata = null)
-        preferences.setCurrentPantryIdForUser(userId, created.id)
-        cachedPantry = userId to created.id
-        return created.id
+
+        val firstOwned = runCatching { remote.getPantries(owner = true, page = 1, perPage = 1).data.firstOrNull() }
+            .getOrNull()
+        val resolvedId = firstOwned?.id ?: remote.createPantry(DEFAULT_PANTRY_NAME, metadata = null).id
+        preferences.setCurrentPantryIdForUser(userId, resolvedId)
+        cachedPantry = userId to resolvedId
+        return resolvedId
     }
 
     private suspend fun resetPantry(): Long {

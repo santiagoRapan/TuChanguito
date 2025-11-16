@@ -30,11 +30,11 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchivedListDetailScreen(listId: Long, onBack: () -> Unit) {
+fun ArchivedListDetailScreen(purchaseId: Long, onBack: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val viewModel: ArchivedListDetailViewModel = viewModel(
-        factory = ArchivedListDetailViewModelFactory(listId, app.shoppingListHistoryRepository)
+        factory = ArchivedListDetailViewModelFactory(purchaseId, app.shoppingListHistoryRepository)
     )
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -65,10 +65,22 @@ fun ArchivedListDetailScreen(listId: Long, onBack: () -> Unit) {
                 Text(uiState.errorMessage ?: "Error")
             }
         } else {
-            val list = uiState.list
+            val purchase = uiState.purchase
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp)) {
                 item {
-                    Text(text = list?.title ?: "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = purchase?.list?.name ?: "",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    purchase?.createdAt?.let { createdAt ->
+                        Text(
+                            text = stringResource(id = R.string.list_history_purchase_summary, purchase.items.size, createdAt),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
                 // Render items grouped by category. itemsByCategory keys can be null (no category)
                 val grouped = uiState.itemsByCategory

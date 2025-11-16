@@ -3,6 +3,7 @@ package com.example.tuchanguito.data.network.api
 import com.example.tuchanguito.BuildConfig
 import com.example.tuchanguito.data.network.api.AuthApiService
 import com.example.tuchanguito.data.network.api.PantryApiService
+import com.example.tuchanguito.data.network.api.PurchasesApiService
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -65,4 +66,7 @@ object RetrofitClient {
 
     fun getAuthApiService(): AuthApiService =
         getInstance().create(AuthApiService::class.java)
+
+    fun getPurchasesApiService(): PurchasesApiService =
+        getInstance().create(PurchasesApiService::class.java)
 }

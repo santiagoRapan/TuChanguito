@@ -39,12 +39,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tuchanguito.data.network.model.PurchaseDto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListHistoryScreen(
     onBack: () -> Unit,
-    onOpenList: (Long) -> Unit
+    onOpenPurchase: (Long) -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as MyApplication
@@ -86,7 +87,7 @@ fun ListHistoryScreen(
                     androidx.compose.material3.CircularProgressIndicator()
                 }
             }
-            uiState.items.isEmpty() -> {
+            uiState.purchases.isEmpty() -> {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = Alignment.Center
@@ -103,8 +104,11 @@ fun ListHistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    items(uiState.items, key = { it.id }) { list ->
-                        HistoryListCard(title = list.title, onOpenList = { onOpenList(list.id) })
+                    items(uiState.purchases, key = { it.id }) { purchase ->
+                        HistoryListCard(
+                            purchase = purchase,
+                            onOpenList = { onOpenPurchase(purchase.id) }
+                        )
                     }
                 }
             }
@@ -114,17 +118,32 @@ fun ListHistoryScreen(
 
 @Composable
 private fun HistoryListCard(
-    title: String,
+    purchase: PurchaseDto,
     onOpenList: () -> Unit
 ) {
     androidx.compose.material3.ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = purchase.list.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(id = R.string.list_history_hint),
+                text = stringResource(
+                    id = R.string.list_history_hint
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    id = R.string.list_history_purchase_summary,
+                    purchase.items.size,
+                    purchase.createdAt
+                ),
+                style = MaterialTheme.typography.bodySmall
             )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
             Button(onClick = onOpenList, modifier = Modifier.align(Alignment.End)) {

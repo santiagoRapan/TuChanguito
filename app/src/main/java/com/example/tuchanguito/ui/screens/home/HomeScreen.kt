@@ -17,39 +17,58 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddShoppingCart
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.menuAnchor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.tuchanguito.R
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tuchanguito.MyApplication
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.network.model.ShoppingListDto
 import com.example.tuchanguito.ui.theme.ButtonBlue
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import com.example.tuchanguito.ui.theme.ColorPrimaryBorder
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,18 +78,50 @@ fun HomeScreen(
     onConfigureCategories: () -> Unit,
     onCreateList: () -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val app = context.applicationContext as MyApplication
     val viewModel: HomeViewModel = viewModel(
-        factory = remember(app.shoppingListsRepository) { HomeViewModelFactory(app.shoppingListsRepository) }
+        factory = remember(app.shoppingListsRepository, app.pantryRepository) {
+            HomeViewModelFactory(app.shoppingListsRepository, app.pantryRepository)
+        }
     )
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHost = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is HomeEvent.LowStockAdded -> {
+                    val destination = event.listName ?: context.getString(R.string.home_low_stock_destination_fallback)
+                    val message = context.getString(
+                        R.string.home_low_stock_add,
+                        event.quantity,
+                        destination
+                    )
+                    snackbarHost.showSnackbar(message)
+                }
+                is HomeEvent.ShowError -> {
+                    snackbarHost.showSnackbar(event.message)
+                }
+            }
+        }
+    }
+
+    var pendingLowStock by remember { mutableStateOf<LowStockItemUi?>(null) }
+    var selectedListId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingQuantity by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(pendingLowStock, uiState.listOptions) {
+        if (pendingLowStock != null && selectedListId == null && uiState.listOptions.isNotEmpty()) {
+            selectedListId = uiState.listOptions.first().id
+        }
+    }
 
     Scaffold(
         topBar = {
-            androidx.compose.material3.CenterAlignedTopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text(stringResource(id = R.string.app_name), color = Color.White) },
-                colors = androidx.compose.material3.TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = ColorPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
@@ -78,6 +129,7 @@ fun HomeScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHost) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
@@ -90,8 +142,46 @@ fun HomeScreen(
         ) {
             ActiveListSection(uiState.activeList, onOpenList, onCreateList)
             QuickActionsSection(onCreateList, onNewProduct, onConfigureCategories)
-            LowStockSection()
+            LowStockSection(
+                items = uiState.lowStockItems,
+                onAdd = { item ->
+                    pendingLowStock = item
+                    selectedListId = uiState.listOptions.firstOrNull()?.id
+                    pendingQuantity = item.suggestedQuantity.toString()
+                }
+            )
         }
+    }
+
+    val dialogItem = pendingLowStock
+    if (dialogItem != null) {
+        LowStockAddDialog(
+            item = dialogItem,
+            listOptions = uiState.listOptions,
+            selectedListId = selectedListId,
+            quantityText = pendingQuantity,
+            isProcessing = uiState.isProcessingLowStock,
+            onListSelected = { selectedListId = it },
+            onQuantityChange = { newValue -> pendingQuantity = newValue.filter { ch -> ch.isDigit() } },
+            onDismiss = {
+                if (!uiState.isProcessingLowStock) {
+                    pendingLowStock = null
+                    selectedListId = null
+                    pendingQuantity = ""
+                }
+            },
+            onConfirm = {
+                val targetList = selectedListId
+                val quantity = pendingQuantity.toIntOrNull()
+                    ?: dialogItem.suggestedQuantity
+                if (targetList != null) {
+                    viewModel.addLowStockItemToList(dialogItem.pantryItemId, targetList, quantity)
+                    pendingLowStock = null
+                    selectedListId = null
+                    pendingQuantity = ""
+                }
+            }
+        )
     }
 }
 
@@ -184,7 +274,10 @@ private fun QuickActionsSection(
 }
 
 @Composable
-private fun LowStockSection() {
+private fun LowStockSection(
+    items: List<LowStockItemUi>,
+    onAdd: (LowStockItemUi) -> Unit
+) {
     HomeSectionCard {
         Text(
             text = stringResource(id = R.string.home_low_stock_title),
@@ -193,11 +286,50 @@ private fun LowStockSection() {
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(id = R.string.home_low_stock_empty),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (items.isEmpty()) {
+            Text(
+                text = stringResource(id = R.string.home_low_stock_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items.forEach { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            val quantityDisplay = if ((item.currentQuantity % 1.0) == 0.0) {
+                                item.currentQuantity.toInt().toString()
+                            } else {
+                                String.format(Locale.getDefault(), "%.1f", item.currentQuantity)
+                            }
+                            Text(
+                                text = item.name.ifBlank { stringResource(id = R.string.home_low_stock_unknown_product) },
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "$quantityDisplay ${item.unit} • mín. ${item.lowStockThreshold}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            onClick = { onAdd(item) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = stringResource(id = R.string.home_low_stock_add_button_content_desc),
+                                tint = ButtonBlue
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -287,3 +419,97 @@ private data class QuickActionItem(
     val label: String,
     val onClick: () -> Unit
 )
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LowStockAddDialog(
+    item: LowStockItemUi,
+    listOptions: List<ShoppingListOption>,
+    selectedListId: Long?,
+    quantityText: String,
+    isProcessing: Boolean,
+    onListSelected: (Long?) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val hasLists = listOptions.isNotEmpty()
+    val isValidQuantity = quantityText.toIntOrNull()?.let { it > 0 } == true
+    val confirmEnabled = hasLists && selectedListId != null && isValidQuantity && !isProcessing
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        confirmButton = {
+            TextButton(onClick = { if (confirmEnabled) onConfirm() }, enabled = confirmEnabled) {
+                Text(text = stringResource(id = R.string.add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { if (!isProcessing) onDismiss() }) {
+                Text(text = stringResource(id = R.string.cancel))
+            }
+        },
+        title = { Text(text = stringResource(id = R.string.home_low_stock_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val displayName = if (item.name.isNotBlank()) {
+                    item.name
+                } else {
+                    stringResource(id = R.string.home_low_stock_unknown_product)
+                }
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (hasLists) {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = {
+                            if (!isProcessing) expanded = !expanded
+                        }
+                    ) {
+                        val selectedName = listOptions.firstOrNull { it.id == selectedListId }?.name.orEmpty()
+                        OutlinedTextField(
+                            value = selectedName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(id = R.string.home_low_stock_select_list)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            listOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.name) },
+                                    onClick = {
+                                        onListSelected(option.id)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = stringResource(id = R.string.home_low_stock_no_lists),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = onQuantityChange,
+                    label = { Text(stringResource(id = R.string.home_low_stock_quantity_label)) },
+                    singleLine = true
+                )
+            }
+        }
+    )
+}

@@ -36,7 +36,8 @@ data class Product(
     val name: String,
     val price: Double = 0.0,
     val categoryId: Long? = null,
-    val unit: String = ""
+    val unit: String = "",
+    val lowStockThreshold: Int = 2
 )
 
 @Entity(tableName = "shopping_lists")

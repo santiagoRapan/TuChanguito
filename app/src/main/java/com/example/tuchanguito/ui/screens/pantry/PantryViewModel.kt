@@ -100,7 +100,13 @@ class PantryViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(errorMessage = null) }
             val resolvedProductId = runCatching {
-                productId ?: createProduct(trimmedName, trimmedCategory, price, unit)
+                productId ?: createProduct(
+                    trimmedName,
+                    trimmedCategory,
+                    price,
+                    unit,
+                    DEFAULT_LOW_STOCK_THRESHOLD
+                )
             }
             resolvedProductId.fold(
                 onSuccess = { id ->
@@ -179,7 +185,8 @@ class PantryViewModel(
         name: String,
         categoryName: String,
         price: Double?,
-        unit: String?
+        unit: String?,
+        lowStockThreshold: Int
     ): Long {
         val existingCategory = _uiState.value.categories.firstOrNull {
             it.name.equals(categoryName, ignoreCase = true)
@@ -190,7 +197,7 @@ class PantryViewModel(
                 state.copy(categories = state.categories + Category(id = categoryId, name = categoryName))
             }
         }
-        val product = productRepository.createProduct(name, categoryId, price, unit)
+        val product = productRepository.createProduct(name, categoryId, price, unit, lowStockThreshold)
         _uiState.update { state ->
             state.copy(products = (state.products + product).distinctBy { it.id })
         }
@@ -207,6 +214,10 @@ class PantryViewModel(
             )
         }
     }
+
+    companion object {
+        private const val DEFAULT_LOW_STOCK_THRESHOLD = 2
+    }
 }
 
 class PantryViewModelFactory(
@@ -221,4 +232,5 @@ class PantryViewModelFactory(
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
+
 }

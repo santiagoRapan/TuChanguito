@@ -321,10 +321,15 @@ fun ProductsScreen() {
         var name by rememberSaveable { mutableStateOf("") }
         var priceText by rememberSaveable { mutableStateOf("") }
         var unit by rememberSaveable { mutableStateOf("") }
+        var lowStockThreshold by rememberSaveable { mutableStateOf(DEFAULT_LOW_STOCK_THRESHOLD.toString()) }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
-        val valid = name.isNotBlank() && (priceText.toDoubleOrNull() != null) && unit.isNotBlank() && (categoryId != null || categoryInput.isNotBlank())
+        val valid = name.isNotBlank() &&
+            (priceText.toDoubleOrNull() != null) &&
+            unit.isNotBlank() &&
+            (categoryId != null || categoryInput.isNotBlank()) &&
+            (lowStockThreshold.toIntOrNull()?.let { it > 0 } == true)
 
         AlertDialog(
             onDismissRequest = { if (!busy) showCreate = false },
@@ -333,8 +338,15 @@ fun ProductsScreen() {
                     scope.launch {
                         busy = true
                         try {
+                            val thresholdValue = lowStockThreshold.toIntOrNull() ?: DEFAULT_LOW_STOCK_THRESHOLD
                             val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
-                            catalogRepository.createProduct(name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
+                            catalogRepository.createProduct(
+                                name.trim(),
+                                priceText.toDouble(),
+                                unit.trim(),
+                                finalCategoryId,
+                                thresholdValue
+                            )
                             showCreate = false
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
                             remoteCategories = catalogRepository.categoriesForQuery(query)
@@ -351,6 +363,12 @@ fun ProductsScreen() {
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)
                     OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text(stringResource(id = R.string.price_label)) }, singleLine = true)
                     OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(stringResource(id = R.string.unit_label)) }, singleLine = true)
+                    OutlinedTextField(
+                        value = lowStockThreshold,
+                        onValueChange = { lowStockThreshold = it.filter { ch -> ch.isDigit() } },
+                        label = { Text(stringResource(id = R.string.low_stock_threshold_label)) },
+                        singleLine = true
+                    )
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
@@ -380,8 +398,15 @@ fun ProductsScreen() {
         var unit by rememberSaveable { mutableStateOf(prod.metadata.stringValue("unit")) }
         var categoryId by rememberSaveable { mutableStateOf<Long?>(prod.category?.id) }
         var categoryInput by rememberSaveable { mutableStateOf("") }
+        var lowStockThreshold by rememberSaveable {
+            val threshold = prod.metadata.intValue("lowStockThreshold", DEFAULT_LOW_STOCK_THRESHOLD)
+            mutableStateOf(threshold.toString())
+        }
         var busy by remember { mutableStateOf(false) }
-        val valid = name.isNotBlank() && (priceText.toDoubleOrNull() != null) && (categoryId != null || categoryInput.isNotBlank())
+        val valid = name.isNotBlank() &&
+            (priceText.toDoubleOrNull() != null) &&
+            (categoryId != null || categoryInput.isNotBlank()) &&
+            (lowStockThreshold.toIntOrNull()?.let { it > 0 } == true)
 
         AlertDialog(
             onDismissRequest = { if (!busy) editingProductId = null },
@@ -390,8 +415,16 @@ fun ProductsScreen() {
                     scope.launch {
                         busy = true
                         try {
+                            val thresholdValue = lowStockThreshold.toIntOrNull() ?: DEFAULT_LOW_STOCK_THRESHOLD
                             val finalCategoryId = categoryId ?: catalogRepository.createOrFindCategoryByName(categoryInput)
-                            catalogRepository.updateProduct(prod.id, name.trim(), priceText.toDouble(), unit.trim(), finalCategoryId)
+                            catalogRepository.updateProduct(
+                                prod.id,
+                                name.trim(),
+                                priceText.toDouble(),
+                                unit.trim(),
+                                finalCategoryId,
+                                thresholdValue
+                            )
                             editingProductId = null
                             remoteProducts = catalogRepository.searchProducts(query, selectedCategoryId)
                             remoteCategories = catalogRepository.categoriesForQuery(query)
@@ -408,6 +441,12 @@ fun ProductsScreen() {
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(id = R.string.name_label)) }, singleLine = true)
                     OutlinedTextField(value = priceText, onValueChange = { priceText = it }, label = { Text(stringResource(id = R.string.price_label)) }, singleLine = true)
                     OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text(stringResource(id = R.string.unit_label)) }, singleLine = true)
+                    OutlinedTextField(
+                        value = lowStockThreshold,
+                        onValueChange = { lowStockThreshold = it.filter { ch -> ch.isDigit() } },
+                        label = { Text(stringResource(id = R.string.low_stock_threshold_label)) },
+                        singleLine = true
+                    )
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
@@ -515,3 +554,14 @@ private fun Any?.stringValue(key: String): String {
     val v = map[key] ?: return ""
     return v.toString().ifBlank { "" }
 }
+
+private fun Any?.intValue(key: String, default: Int = DEFAULT_LOW_STOCK_THRESHOLD): Int {
+    val map = this as? Map<*, *> ?: return default
+    val v = map[key] ?: return default
+    return when (v) {
+        is Number -> v.toInt()
+        else -> v.toString().toIntOrNull() ?: default
+    }
+}
+
+private const val DEFAULT_LOW_STOCK_THRESHOLD = 2

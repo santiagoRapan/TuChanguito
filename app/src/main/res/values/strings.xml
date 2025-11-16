@@ -178,6 +178,11 @@
     <string name="home_low_stock_add">Agregar %1$d a %2$s</string>
     <string name="home_low_stock_unknown_product">Producto sin nombre</string>
     <string name="home_low_stock_add_button_content_desc">Agregar producto con bajo stock</string>
+    <string name="home_low_stock_dialog_title">Agregar desde bajo stock</string>
+    <string name="home_low_stock_select_list">Selecciona una lista</string>
+    <string name="home_low_stock_quantity_label">Cantidad</string>
+    <string name="home_low_stock_no_lists">No tienes listas disponibles</string>
+    <string name="low_stock_threshold_label">Umbral de bajo stock</string>
 
     <!-- Strings for ListsScreen -->
     <string name="my_lists">Listas</string>

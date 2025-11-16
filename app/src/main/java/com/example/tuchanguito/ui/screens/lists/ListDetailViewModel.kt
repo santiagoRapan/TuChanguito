@@ -175,7 +175,13 @@ class ListDetailViewModel(
             }
             val normalizedUnit = unit?.takeIf { it.isNotBlank() } ?: "u"
             val resolvedProductResult = runCatching {
-                productId ?: createProduct(trimmedName, trimmedCategory, price, normalizedUnit)
+                productId ?: createProduct(
+                    trimmedName,
+                    trimmedCategory,
+                    price,
+                    normalizedUnit,
+                    DEFAULT_LOW_STOCK_THRESHOLD
+                )
             }
             resolvedProductResult.fold(
                 onSuccess = { resolvedId ->
@@ -317,10 +323,17 @@ class ListDetailViewModel(
         name: String,
         categoryName: String,
         price: Double?,
-        unit: String?
+        unit: String?,
+        lowStockThreshold: Int
     ): Long {
         val categoryId = findOrCreateCategory(categoryName)
-        val product = productRepository.createProduct(name, categoryId, price, unit)
+        val product = productRepository.createProduct(
+            name,
+            categoryId,
+            price,
+            unit,
+            lowStockThreshold
+        )
         _uiState.update { state -> state.copy(products = (state.products + product).distinctBy { it.id }) }
         return product.id
     }
@@ -339,6 +352,10 @@ class ListDetailViewModel(
         val third: C,
         val fourth: D
     )
+
+    companion object {
+        private const val DEFAULT_LOW_STOCK_THRESHOLD = 2
+    }
 }
 
 class ListDetailViewModelFactory(

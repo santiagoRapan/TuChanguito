@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -78,11 +79,12 @@ class CatalogRepository(
         name: String,
         price: Double,
         unit: String,
-        categoryId: Long?
+        categoryId: Long?,
+        lowStockThreshold: Int
     ): Long {
-        val metadata = metadataJson(price, unit)
+        val metadata = metadataJson(price, unit, lowStockThreshold)
         val dto = productRemote.createProduct(name, categoryId, metadata)
-        productDao.upsert(dto.toEntity(price, unit))
+        productDao.upsert(dto.toEntity(price, unit, lowStockThreshold))
         return dto.id
     }
 
@@ -91,11 +93,12 @@ class CatalogRepository(
         name: String,
         price: Double,
         unit: String,
-        categoryId: Long?
+        categoryId: Long?,
+        lowStockThreshold: Int
     ) {
-        val metadata = metadataJson(price, unit)
+        val metadata = metadataJson(price, unit, lowStockThreshold)
         val dto = productRemote.updateProduct(id, name, categoryId, metadata)
-        productDao.upsert(dto.toEntity(price, unit))
+        productDao.upsert(dto.toEntity(price, unit, lowStockThreshold))
     }
 
     suspend fun deleteProduct(id: Long) {
@@ -103,25 +106,33 @@ class CatalogRepository(
         productDao.getById(id)?.let { productDao.delete(it) }
     }
 
-    private fun metadataJson(price: Double, unit: String): JsonObject =
+    private fun metadataJson(price: Double, unit: String, lowStockThreshold: Int): JsonObject =
         buildJsonObject {
             put("price", price)
             put("unit", unit)
+            if (lowStockThreshold > 0) {
+                put("lowStockThreshold", lowStockThreshold)
+            }
         }
 
     private fun ProductDto.toEntity(
         fallbackPrice: Double? = null,
-        fallbackUnit: String? = null
+        fallbackUnit: String? = null,
+        fallbackThreshold: Int? = null
     ): Product {
         val obj = metadata?.jsonObject
         val price = obj?.get("price")?.jsonPrimitive?.doubleOrNull ?: fallbackPrice ?: 0.0
         val unit = obj?.get("unit")?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { fallbackUnit.orEmpty() }
+        val threshold = obj?.get("lowStockThreshold")?.jsonPrimitive?.intOrNull
+            ?: fallbackThreshold
+            ?: 2
         return Product(
             id = id,
             name = name,
             price = price,
             categoryId = category?.id,
-            unit = unit
+            unit = unit,
+            lowStockThreshold = threshold
         )
     }
 

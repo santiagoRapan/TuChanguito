@@ -5,9 +5,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -75,6 +77,44 @@ class PreferencesManager(private val context: Context) {
     }
     suspend fun setLastOpenedListId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.LAST_OPENED_LIST_ID) else it[Keys.LAST_OPENED_LIST_ID] = id.toString() } }
 
+    suspend fun addDismissedLowStockId(id: Long) {
+        val userId = currentUserId.firstOrNull()
+        val key = lowStockKeyForUser(userId)
+        context.dataStore.edit { prefs ->
+            val current = prefs[key]?.toMutableSet() ?: mutableSetOf()
+            current.add(id.toString())
+            prefs[key] = current
+        }
+    }
+
+    suspend fun getDismissedLowStockIds(): Set<Long> {
+        val userId = currentUserId.firstOrNull()
+        val key = lowStockKeyForUser(userId)
+        return context.dataStore.data.map { prefs ->
+            prefs[key]?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
+        }.first()
+    }
+
+    suspend fun retainDismissedLowStockIds(validIds: Set<Long>) {
+        val userId = currentUserId.firstOrNull()
+        val key = lowStockKeyForUser(userId)
+        context.dataStore.edit { prefs ->
+            val filtered = prefs[key]
+                ?.mapNotNull { it.toLongOrNull() }
+                ?.filter { validIds.contains(it) }
+                ?.map { it.toString() }
+                ?.toSet()
+            if (filtered.isNullOrEmpty()) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = filtered.toMutableSet()
+            }
+        }
+    }
+
     private fun pantryKeyForUser(userId: Long?): Preferences.Key<String> =
         stringPreferencesKey("current_pantry_id_${userId ?: "default"}")
+
+    private fun lowStockKeyForUser(userId: Long?): Preferences.Key<Set<String>> =
+        stringSetPreferencesKey("low_stock_dismissed_${userId ?: "default"}")
 }

@@ -1,5 +1,6 @@
 package com.example.tuchanguito.data.network.api
 
+import android.util.Log
 import com.example.tuchanguito.BuildConfig
 import com.example.tuchanguito.data.network.api.AuthApiService
 import com.example.tuchanguito.data.network.api.PantryApiService
@@ -29,6 +30,9 @@ object RetrofitClient {
         }
 
     private fun buildRetrofit(): Retrofit {
+        val rawBaseUrl = BuildConfig.BASE_URL
+        val normalizedBaseUrl = rawBaseUrl.trim().trimEnd('/') + "/"
+        Log.d("RetrofitClient", "Inicializando Retrofit con BASE_URL=$normalizedBaseUrl")
         val logging = HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
         val authInterceptor = Interceptor { chain ->
             val request = chain.request().newBuilder().apply {
@@ -46,7 +50,7 @@ object RetrofitClient {
         val json = Json { ignoreUnknownKeys = true }
 
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
+            .baseUrl(normalizedBaseUrl)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(okHttpClient)
             .build()

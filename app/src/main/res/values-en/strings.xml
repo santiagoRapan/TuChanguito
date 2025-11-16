@@ -212,4 +212,9 @@
     <string name="shared_list_delete_not_allowed_title">Not able to remove</string>
     <string name="shared_list_delete_not_allowed">You cannot remove a list unless you are the owner. If you want to stop seeing it ask the owner to remove it</string>
     <string name="accept">Accept</string>
+    <string name="clear_search">Clear search</string>
+
+    <!-- Purchase progress strings -->
+    <string name="purchase_progress_title">Purchase progress</string>
+    <string name="purchase_progress_fmt">%1$d of %2$d purchased (%3$d%%)</string>
 </resources>

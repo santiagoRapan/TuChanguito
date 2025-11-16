@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -115,7 +116,8 @@ fun PantryScreen() {
                 onValueChange = viewModel::onQueryChange,
                 label = { Text(stringResource(id = R.string.search)) },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
             )
 
             val filterChipColors = FilterChipDefaults.filterChipColors(

@@ -228,4 +228,9 @@
     <string name="shared_list_delete_not_allowed_title">No se puede eliminar</string>
     <string name="shared_list_delete_not_allowed">No podés eliminar una lista compartida si no sos el dueño. Si querés dejar de verla, pedile al dueño que deje de compartirla con vos.</string>
     <string name="accept">Aceptar</string>
+    <string name="clear_search">Limpiar búsqueda</string>
+
+    <!-- Purchase progress strings -->
+    <string name="purchase_progress_title">Progreso de la compra</string>
+    <string name="purchase_progress_fmt">%1$d de %2$d comprados (%3$d%%)</string>
 </resources>

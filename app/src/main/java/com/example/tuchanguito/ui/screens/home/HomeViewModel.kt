@@ -28,7 +28,11 @@ data class HomeUiState(
     val lowStockItems: List<LowStockItemUi> = emptyList(),
     val listOptions: List<ShoppingListOption> = emptyList(),
     val isProcessingLowStock: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // progreso de compra de la lista activa
+    val activePurchasedCount: Int = 0,
+    val activeTotalCount: Int = 0,
+    val activeProgress: Float = 0f
 )
 
 data class LowStockItemUi(
@@ -83,27 +87,36 @@ class HomeViewModel(
                         )
                     }
                     val pantryDeferred = async { pantryRepository.getItems() }
-                    Pair(listsDeferred.await(), pantryDeferred.await())
+                    val lists = listsDeferred.await()
+                    val active = lists.data.firstOrNull()
+                    val items = if (active != null) repository.getItems(active.id) else emptyList()
+                    Triple(lists, pantryDeferred.await(), items)
                 }
             }
-            val processedResult: Result<Pair<PaginatedResponseDto<ShoppingListDto>, List<LowStockItemUi>>> =
-                result.fold(
-                    onSuccess = { (response, pantryItems) ->
-                        val lowStockRaw = pantryItems.toLowStock()
-                        val dismissedIds = pantryRepository.dismissedLowStockIds()
-                        pantryRepository.retainDismissedLowStockIds(lowStockRaw.map { it.pantryItemId }.toSet())
-                        Result.success(response to lowStockRaw.filterNot { dismissedIds.contains(it.pantryItemId) })
-                    },
-                    onFailure = { throwable -> Result.failure(throwable) }
-                )
+            val processedResult = result.fold(
+                onSuccess = { (response, pantryItems, activeItems) ->
+                    val lowStockRaw = pantryItems.toLowStock()
+                    val dismissedIds = pantryRepository.dismissedLowStockIds()
+                    pantryRepository.retainDismissedLowStockIds(lowStockRaw.map { it.pantryItemId }.toSet())
+                    Result.success(Triple(response, lowStockRaw.filterNot { dismissedIds.contains(it.pantryItemId) }, activeItems))
+                },
+                onFailure = { throwable -> Result.failure(throwable) }
+            )
             _uiState.update { current ->
                 processedResult.fold(
-                    onSuccess = { (response, filteredLowStock) ->
+                    onSuccess = { (response, filteredLowStock, activeItems) ->
+                        val active = response.data.firstOrNull()
+                        val purchased = activeItems.count { it.purchased }
+                        val total = activeItems.size
+                        val progress = if (total > 0) purchased.toFloat() / total.toFloat() else 0f
                         current.copy(
                             isLoading = false,
-                            activeList = response.data.firstOrNull(),
+                            activeList = active,
                             lowStockItems = filteredLowStock,
-                            listOptions = response.data.map { ShoppingListOption(it.id, it.name) }
+                            listOptions = response.data.map { ShoppingListOption(it.id, it.name) },
+                            activePurchasedCount = purchased,
+                            activeTotalCount = total,
+                            activeProgress = progress
                         )
                     },
                     onFailure = { throwable ->

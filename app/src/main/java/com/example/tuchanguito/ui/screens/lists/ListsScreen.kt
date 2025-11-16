@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +30,8 @@ import com.example.tuchanguito.data.model.ShoppingList
 import com.example.tuchanguito.R
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,8 +49,13 @@ fun ListsScreen(
 
     // State
     val lists by listsRepository.observeLists().collectAsState(initial = emptyList())
-    val regularLists = remember(lists) { lists.filterNot { it.recurring } }
-    val recurringLists = remember(lists) { lists.filter { it.recurring } }
+    var query by rememberSaveable { mutableStateOf("") }
+    var remoteLists by remember { mutableStateOf<List<ShoppingList>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    // regular/recurring basados en remoteLists si hay query, si no usa listas locales
+    val baseLists = if (query.isBlank()) lists else remoteLists
+    val regularLists = remember(baseLists) { baseLists.filterNot { it.recurring } }
+    val recurringLists = remember(baseLists) { baseLists.filter { it.recurring } }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var newName by rememberSaveable { mutableStateOf("") }
     val editIdState = rememberSaveable { mutableStateOf<Long?>(null) }
@@ -77,6 +86,26 @@ fun ListsScreen(
         busy = false
     }
 
+    LaunchedEffect(query) {
+        if (query.isBlank()) {
+            remoteLists = emptyList()
+            return@LaunchedEffect
+        }
+        searching = true
+        // debounce 300ms
+        delay(300)
+        val refreshResult = listsRepository.refreshLists(name = query)
+        if (refreshResult.isFailure) {
+            snackbarHost.showSnackbar(refreshResult.exceptionOrNull()?.message ?: genericErrorLabel)
+            searching = false
+            return@LaunchedEffect
+        }
+        // Obtener snapshot local tras la actualización
+        val current = listsRepository.observeLists().first()
+        remoteLists = current.filter { it.title.contains(query, ignoreCase = true) }
+        searching = false
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -86,7 +115,16 @@ fun ListsScreen(
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White
-                )
+                ),
+                actions = {
+                    // Ícono de historial al mismo nivel que el título
+                    IconButton(onClick = onViewHistory) {
+                        Icon(
+                            imageVector = Icons.Filled.History,
+                            contentDescription = stringResource(id = R.string.view_list_history)
+                        )
+                    }
+                }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHost) },
@@ -113,25 +151,26 @@ fun ListsScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(16.dp))
-            Row(
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(stringResource(id = R.string.search)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Spacer(modifier = Modifier.weight(1f))
-                OutlinedButton(
-                    onClick = onViewHistory,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(id = R.string.view_list_history))
+                trailingIcon = {
+                    if (searching) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else if (query.isNotBlank()) {
+                        IconButton(onClick = { query = "" }) { Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.close_label)) }
+                    }
                 }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            if (busy) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (lists.isEmpty()) {
+            )
+            Spacer(Modifier.height(12.dp))
+            if (busy || searching) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            } else if (baseLists.isEmpty()) {
+                // Ajusta condición para usar filteredLists
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     // Transparent box with thin black border and rounded corners
                     Box(

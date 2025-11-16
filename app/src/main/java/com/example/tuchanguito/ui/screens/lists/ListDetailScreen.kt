@@ -1,5 +1,8 @@
 package com.example.tuchanguito.ui.screens.lists
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +38,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,6 +74,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -160,6 +165,17 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         }
     }
 
+    val purchasedCount by remember(uiState.items) { derivedStateOf { uiState.items.count { it.purchased } } }
+    val totalCount by remember(uiState.items) { derivedStateOf { uiState.items.size } }
+    val progress by remember(purchasedCount, totalCount) {
+        derivedStateOf { if (totalCount == 0) 0f else purchasedCount.toFloat() / totalCount.toFloat() }
+    }
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+        label = "purchaseProgress"
+    )
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -196,6 +212,43 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (totalCount > 0) {
+                // Contenedor con esquinas redondeadas y leve elevación
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(12.dp),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Progreso de la compra", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.height(6.dp))
+                            LinearProgressIndicator(
+                                progress = { animatedProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            val percent = (progress * 100).toInt()
+                            Text(
+                                text = "$purchasedCount de $totalCount comprados ($percent%)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start
+                            )
+                        }
+                    }
+                }
+            }
+
             if (uiState.isLoading && uiState.items.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -227,34 +280,21 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
-                        sortedCategories.forEach { categoryName ->
-                            val itemsInCategory = groupedItems[categoryName].orEmpty()
-                            if (itemsInCategory.isNotEmpty()) {
-                                item {
-                                    Text(
-                                        text = categoryName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.fillMaxWidth()
+                        item {
+                            CombinedCategoriesCard(
+                                sortedCategories = sortedCategories,
+                                groupedItems = groupedItems,
+                                onQuantityChange = { item, newQuantity ->
+                                    viewModel.updateItemQuantity(
+                                        item.id,
+                                        item.product.id,
+                                        newQuantity,
+                                        item.unit ?: item.product.unitFromMetadata()
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                                items(itemsInCategory, key = { it.id }) { item ->
-                                    ListItemCard(
-                                        item = item,
-                                        onQuantityChange = { newQuantity ->
-                                            viewModel.updateItemQuantity(
-                                                item.id,
-                                                item.product.id,
-                                                newQuantity,
-                                                item.unit ?: item.product.unitFromMetadata()
-                                            )
-                                        },
-                                        onRequestDelete = { itemToDeleteId = item.id },
-                                        onToggleAcquired = { purchased -> viewModel.toggleItem(item.id, purchased) }
-                                    )
-                                }
-                            }
+                                },
+                                onRequestDelete = { item -> itemToDeleteId = item.id },
+                                onToggleAcquired = { item, purchased -> viewModel.toggleItem(item.id, purchased) }
+                            )
                         }
                     }
                 }
@@ -741,6 +781,87 @@ private fun FinalizeDialog(
             }
         }
     )
+}
+
+@Composable
+private fun CombinedCategoriesCard(
+    sortedCategories: List<String>,
+    groupedItems: Map<String, List<ListItemDto>>,
+    onQuantityChange: (ListItemDto, Double) -> Unit,
+    onRequestDelete: (ListItemDto) -> Unit,
+    onToggleAcquired: (ListItemDto, Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            sortedCategories.forEachIndexed { cIndex, categoryName ->
+                val items = groupedItems[categoryName].orEmpty()
+                if (items.isEmpty()) return@forEachIndexed
+                // Título de categoría dentro de la tarjeta
+                Text(
+                    text = categoryName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+                // Filas de productos
+                items.forEachIndexed { index, item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Checkbox(checked = item.purchased, onCheckedChange = { onToggleAcquired(item, it) })
+                        Spacer(Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.product.name,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = if (item.purchased) TextDecoration.LineThrough else TextDecoration.None
+                            )
+                            Text(
+                                text = "$%.2f".format(item.product.priceFromMetadata()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { if (item.quantity > 1) onQuantityChange(item, item.quantity - 1) else onRequestDelete(item) }) {
+                                Icon(Icons.Default.Remove, contentDescription = "Decrementar")
+                            }
+                            val formattedQuantity = if (item.quantity % 1.0 == 0.0) item.quantity.toInt().toString() else "%.2f".format(item.quantity)
+                            Text(formattedQuantity, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            IconButton(onClick = { onQuantityChange(item, item.quantity + 1) }) {
+                                Icon(Icons.Default.Add, contentDescription = "Incrementar")
+                            }
+                            IconButton(onClick = { onRequestDelete(item) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                    if (index < items.lastIndex) {
+                        Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    }
+                }
+                // Separador entre categorías dentro de la misma tarjeta
+                if (cIndex < sortedCategories.lastIndex) {
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+        }
+    }
 }
 
 private fun ProductDto.priceFromMetadata(): Double {

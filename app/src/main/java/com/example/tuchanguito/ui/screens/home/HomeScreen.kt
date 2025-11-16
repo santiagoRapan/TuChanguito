@@ -1,7 +1,11 @@
 package com.example.tuchanguito.ui.screens.home
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddShoppingCart
@@ -32,6 +35,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -139,7 +143,14 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            ActiveListSection(uiState.activeList, onOpenList, onCreateList)
+            ActiveListSection(
+                active = uiState.activeList,
+                onOpenList = onOpenList,
+                onCreateList = onCreateList,
+                purchasedCount = uiState.activePurchasedCount,
+                totalCount = uiState.activeTotalCount,
+                progress = uiState.activeProgress
+            )
             QuickActionsSection(onCreateList, onNewProduct, onConfigureCategories)
             LowStockSection(
                 items = uiState.lowStockItems,
@@ -188,7 +199,10 @@ fun HomeScreen(
 private fun ActiveListSection(
     active: ShoppingListDto?,
     onOpenList: (Long) -> Unit,
-    onCreateList: () -> Unit
+    onCreateList: () -> Unit,
+    purchasedCount: Int,
+    totalCount: Int,
+    progress: Float
 ) {
     HomeSectionCard(containerColor = ButtonBlue) {
         Text(
@@ -206,7 +220,44 @@ private fun ActiveListSection(
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
+
+            if (totalCount > 0) {
+                // Contenedor con esquinas redondeadas
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Progreso de la compra", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(6.dp))
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = progress.coerceIn(0f, 1f),
+                            animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+                            label = "homeActiveProgress"
+                        )
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        val percent = (progress * 100).toInt()
+                        Text(
+                            text = "$purchasedCount de $totalCount comprados ($percent%)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Button(
                     onClick = { onOpenList(active.id) },

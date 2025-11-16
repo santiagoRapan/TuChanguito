@@ -12,9 +12,9 @@ class ShoppingListsLocalRepository(
 
     fun observeLists(): Flow<List<ShoppingList>> = shoppingListDao.observeActive()
 
-    suspend fun refreshLists(): Result<Unit> = runCatching {
+    suspend fun refreshLists(name: String? = null): Result<Unit> = runCatching {
         // Traemos todas las listas accesibles para el usuario (propias y compartidas)
-        val page = remote.getLists(owner = null, perPage = 200)
+        val page = remote.getLists(name = name, owner = null, perPage = 200)
         val entities = page.data.map { it.toEntity() }
         shoppingListDao.clearActive()
         entities.forEach { shoppingListDao.upsert(it) }

@@ -253,8 +253,7 @@ fun ProductsScreen() {
                 } else {
                     items(remoteProducts.size, key = { idx -> remoteProducts[idx].id }) { i ->
                         val p = remoteProducts[i]
-                        val isDark = MaterialTheme.colorScheme.background != Color.White
-                        val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
+                        val cardColor = ColorSurface
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { target ->
                                 if (target == SwipeToDismissBoxValue.EndToStart) {

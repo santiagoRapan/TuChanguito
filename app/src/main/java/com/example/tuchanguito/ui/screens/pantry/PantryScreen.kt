@@ -328,8 +328,7 @@ private fun PantryItemRow(
             } else false
         }
     )
-    val isDark = MaterialTheme.colorScheme.background != Color.White
-    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
+    val cardColor = ColorSurface
 
     SwipeToDismissBox(
         state = dismissState,

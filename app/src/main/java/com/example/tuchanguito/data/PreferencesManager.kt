@@ -35,7 +35,22 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setTheme(value: String) { context.dataStore.edit { it[Keys.THEME] = value } }
     suspend fun setRememberMe(value: Boolean) { context.dataStore.edit { it[Keys.REMEMBER_ME] = value } }
-    suspend fun setCurrentUserId(id: Long?) { context.dataStore.edit { if (id == null) it.remove(Keys.CURRENT_USER_ID) else it[Keys.CURRENT_USER_ID] = id.toString() } }
+    suspend fun setCurrentUserId(id: Long?) {
+        context.dataStore.edit { prefs ->
+            if (id == null) {
+                prefs.remove(Keys.CURRENT_USER_ID)
+            } else {
+                prefs[Keys.CURRENT_USER_ID] = id.toString()
+                val defaultPantry = prefs[Keys.CURRENT_PANTRY_ID]
+                if (defaultPantry != null) {
+                    val userKey = pantryKeyForUser(id)
+                    if (!prefs.contains(userKey)) {
+                        prefs[userKey] = defaultPantry
+                    }
+                }
+            }
+        }
+    }
     suspend fun setAuthToken(token: String?) { context.dataStore.edit { if (token == null) it.remove(Keys.AUTH_TOKEN) else it[Keys.AUTH_TOKEN] = token } }
     suspend fun setPendingCredentials(email: String, password: String) { context.dataStore.edit { it[Keys.PENDING_EMAIL] = email; it[Keys.PENDING_PASSWORD] = password } }
     suspend fun clearPendingCredentials() { context.dataStore.edit { it.remove(Keys.PENDING_EMAIL); it.remove(Keys.PENDING_PASSWORD) } }

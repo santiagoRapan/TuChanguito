@@ -31,7 +31,6 @@ class MyApplication : Application() {
         SessionManager.configure {
             preferences.setAuthToken(null)
             preferences.setCurrentUserId(null)
-            preferences.setCurrentPantryId(null)
             preferences.setLastOpenedListId(null)
             preferences.clearPendingCredentials()
             pantryRepository.clearCache()

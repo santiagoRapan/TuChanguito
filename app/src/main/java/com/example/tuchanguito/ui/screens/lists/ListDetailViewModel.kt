@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 data class ListDetailUiState(
     val isLoading: Boolean = true,
@@ -73,8 +75,39 @@ class ListDetailViewModel(
     private val _events = MutableSharedFlow<ListDetailEvent>()
     val events: SharedFlow<ListDetailEvent> = _events.asSharedFlow()
 
+    // Sugerencias remotas de productos/categorías para autocompletar
+    private val _productSuggestions = MutableStateFlow<List<Product>>(emptyList())
+    val productSuggestions: StateFlow<List<Product>> = _productSuggestions.asStateFlow()
+
+    private val _categorySuggestions = MutableStateFlow<List<Category>>(emptyList())
+    val categorySuggestions: StateFlow<List<Category>> = _categorySuggestions.asStateFlow()
+
+    private var productSearchJob: Job? = null
+    private var categorySearchJob: Job? = null
+
     init {
         refreshAll()
+    }
+
+    // Búsqueda remota con debounce
+    fun searchProducts(query: String) {
+        productSearchJob?.cancel()
+        if (query.isBlank()) { _productSuggestions.value = emptyList(); return }
+        productSearchJob = viewModelScope.launch {
+            delay(250)
+            val result = runCatching { productRepository.getProducts(perPage = 10, name = query) }
+            _productSuggestions.value = result.getOrElse { emptyList() }
+        }
+    }
+
+    fun searchCategories(query: String) {
+        categorySearchJob?.cancel()
+        if (query.isBlank()) { _categorySuggestions.value = emptyList(); return }
+        categorySearchJob = viewModelScope.launch {
+            delay(250)
+            val result = runCatching { categoryRepository.getCategories(perPage = 10, name = query) }
+            _categorySuggestions.value = result.getOrElse { emptyList() }
+        }
     }
 
     fun refreshAll() {

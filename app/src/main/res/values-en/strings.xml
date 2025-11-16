@@ -4,6 +4,8 @@
     <string name="register">Sign up</string>
     <string name="email">Email</string>
     <string name="password">Password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
     <string name="remember_me">Remember me</string>
     <string name="forgot_password">Forgot your password?</string>
     <string name="no_account_create">Don\'t have an account?</string>
@@ -176,6 +178,11 @@
     <string name="home_low_stock_add">Add %1$d to %2$s</string>
     <string name="home_low_stock_unknown_product">Unnamed product</string>
     <string name="home_low_stock_add_button_content_desc">Add low-stock product</string>
+    <string name="home_low_stock_dialog_title">Add from low-stock</string>
+    <string name="home_low_stock_select_list">Select a list</string>
+    <string name="home_low_stock_quantity_label">Quantity</string>
+    <string name="home_low_stock_no_lists">You dont have available lists</string>
+    <string name="low_stock_threshold_label">Low-stock threshold</string>
 
     <!-- Strings for ListsScreen -->
     <string name="my_lists">Lists</string>
@@ -191,6 +198,7 @@
     <string name="list_history_title">List history</string>
     <string name="list_history_empty">There is no list history yet.</string>
     <string name="list_history_hint">Reopen this list to reuse it.</string>
+    <string name="list_history_purchase_summary">%1$d products - Purchased on %2$s</string>
     <string name="view_history">View history</string>
 
     <!-- New strings -->
@@ -209,6 +217,13 @@
     <string name="delete_action">Delete</string>
     <string name="edit_product">Edit product</string>
 
+    <!-- Error when trying to finalize a shared list as a non-owner -->
+    <string name="error_shared_list_finalize_not_allowed">
+        You are not allowed to finalize a list shared with you.
+    </string>
+
+
+
     <string name="shared_list_delete_not_allowed_title">Not able to remove</string>
     <string name="shared_list_delete_not_allowed">You cannot remove a list unless you are the owner. If you want to stop seeing it ask the owner to remove it</string>
     <string name="accept">Accept</string>
@@ -217,4 +232,6 @@
     <!-- Purchase progress strings -->
     <string name="purchase_progress_title">Purchase progress</string>
     <string name="purchase_progress_fmt">%1$d of %2$d purchased (%3$d%%)</string>
+
+    <string name="take_photo">Take a photo</string>
 </resources>

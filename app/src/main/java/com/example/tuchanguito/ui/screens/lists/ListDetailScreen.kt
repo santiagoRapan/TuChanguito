@@ -13,19 +13,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
@@ -38,10 +35,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -55,9 +54,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -87,13 +83,6 @@ import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.data.network.model.ListItemDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.data.network.model.ShoppingListDto
-import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ItemAdded
-import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ListFinalized
-import com.example.tuchanguito.ui.screens.lists.ListDetailEvent.ShowSnackbar
-import com.example.tuchanguito.ui.screens.lists.ListDetailViewModel
-import com.example.tuchanguito.ui.screens.lists.ListDetailViewModelFactory
-import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
-import com.example.tuchanguito.ui.screens.lists.ShareUiState
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
 import kotlinx.coroutines.flow.collectLatest
@@ -120,6 +109,8 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     val uiState by viewModel.uiState.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
+    val productSuggestions by viewModel.productSuggestions.collectAsState()
+    val categorySuggestions by viewModel.categorySuggestions.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -135,15 +126,15 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
             when (event) {
-                is ShowSnackbar -> {
+                is ListDetailEvent.ShowSnackbar -> {
                     if (showAddProductDialog) addDialogBusy = false
                     snackbarHost.showSnackbar(event.message)
                 }
-                ItemAdded -> {
+                ListDetailEvent.ItemAdded -> {
                     addDialogBusy = false
                     showAddProductDialog = false
                 }
-                ListFinalized -> {
+                ListDetailEvent.ListFinalized -> {
                     showFinalizeDialog = false
                     onClose()
                 }
@@ -151,13 +142,6 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
         }
     }
 
-    val groupedItems = remember(uiState.items) {
-        uiState.items.groupBy { it.product.category?.name ?: "Sin categoria" }
-    }
-    val sortedCategories = remember(groupedItems) { groupedItems.keys.sortedBy { it.lowercase() } }
-    val totalCost by remember(uiState.items) {
-        derivedStateOf { uiState.items.sumOf { it.quantity * it.product.priceFromMetadata() } }
-    }
     val categoryLookup = remember(uiState.products, uiState.categories) {
         uiState.products.associate { product ->
             product.id to uiState.categories.firstOrNull { it.id == product.categoryId }?.name
@@ -169,6 +153,17 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
     val progress by remember(purchasedCount, totalCount) {
         derivedStateOf { if (totalCount == 0) 0f else purchasedCount.toFloat() / totalCount.toFloat() }
     }
+    // Costo total: suma de cantidad * precio del metadata del producto
+    val totalCost by remember(uiState.items) {
+        derivedStateOf { uiState.items.sumOf { it.quantity * it.product.priceFromMetadata() } }
+    }
+    // Agrupar por categoría, usando el nombre embebido si existe o el fallback por lookup por productId
+    val groupedItems = remember(uiState.items, categoryLookup) {
+        uiState.items.groupBy { item ->
+            item.product.category?.name ?: (categoryLookup[item.product.id] ?: "Sin categoria")
+        }
+    }
+    val sortedCategories = remember(groupedItems) { groupedItems.keys.sortedBy { it.lowercase() } }
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
@@ -188,7 +183,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(id = R.string.back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back))
                     }
                 },
                 actions = {
@@ -225,7 +220,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Progreso de la compra", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                            Text(stringResource(R.string.purchase_progress_title), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(Modifier.height(6.dp))
                             LinearProgressIndicator(
                                 progress = { animatedProgress },
@@ -238,7 +233,12 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             Spacer(Modifier.height(4.dp))
                             val percent = (progress * 100).toInt()
                             Text(
-                                text = "$purchasedCount de $totalCount comprados ($percent%)",
+                                text = stringResource(
+                                    id = R.string.purchase_progress_fmt,
+                                    purchasedCount,
+                                    totalCount,
+                                    percent
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Start
@@ -266,7 +266,7 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
                             Text(
                                 text = stringResource(id = R.string.list_empty_message),
                                 style = MaterialTheme.typography.bodyLarge,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(4.dp)
                             )
                         }
@@ -348,15 +348,17 @@ fun ListDetailScreen(listId: Long, onClose: () -> Unit = {}) {
 
     if (showAddProductDialog) {
         AddItemDialog(
-            products = uiState.products,
-            categories = uiState.categories,
+            products = productSuggestions,
+            categories = categorySuggestions,
             isSubmitting = addDialogBusy,
             onDismiss = { if (!addDialogBusy) showAddProductDialog = false },
             onAdd = { productId, name, price, unit, categoryName ->
                 addDialogBusy = true
                 viewModel.addItem(productId, name, price, unit, categoryName)
             },
-            categoryNameFor = { productId -> categoryLookup[productId] }
+            categoryNameFor = { productId -> categoryLookup[productId] },
+            onQueryProducts = { query -> viewModel.searchProducts(query) },
+            onQueryCategories = { query -> viewModel.searchCategories(query) }
         )
     }
 
@@ -409,16 +411,15 @@ private fun AddItemDialog(
     isSubmitting: Boolean,
     onDismiss: () -> Unit,
     onAdd: (productId: Long?, name: String, price: Double?, unit: String?, categoryName: String) -> Unit,
-    categoryNameFor: (Long) -> String?
+    categoryNameFor: (Long) -> String?,
+    onQueryProducts: (String) -> Unit,
+    onQueryCategories: (String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var priceText by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("") }
     var categoryText by remember { mutableStateOf("") }
-
-    var productExpanded by remember { mutableStateOf(false) }
-    var categoryExpanded by remember { mutableStateOf(false) }
 
     fun prefillFrom(product: Product) {
         name = product.name
@@ -440,38 +441,28 @@ private fun AddItemDialog(
         title = { Text(stringResource(id = R.string.add_product_to_list)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box {
+                // Campo Producto con ExposedDropdownMenuBox (auto expand con resultados)
+                val productHasResults = name.isNotBlank() && products.isNotEmpty()
+                ExposedDropdownMenuBox(expanded = productHasResults, onExpandedChange = { /* no-op: se controla automáticamente */ }) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = {
                             name = it
-                            productExpanded = it.isNotBlank()
                             selectedId = null
+                            onQueryProducts(it)
                         },
                         label = { Text("Producto") },
-                        trailingIcon = {
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.clickable { productExpanded = !productExpanded }
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productHasResults) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
                         enabled = !isSubmitting
                     )
-                    val filteredProducts = products.filter { product ->
-                        product.name.contains(name, ignoreCase = true) && name.isNotBlank()
-                    }
-                    DropdownMenu(
-                        expanded = productExpanded && filteredProducts.isNotEmpty(),
-                        onDismissRequest = { productExpanded = false }
-                    ) {
-                        filteredProducts.forEach { product ->
+                    ExposedDropdownMenu(expanded = productHasResults, onDismissRequest = { /* no-op */ }) {
+                        products.forEach { product ->
                             DropdownMenuItem(
                                 text = { Text(product.name) },
                                 onClick = {
                                     prefillFrom(product)
-                                    productExpanded = false
+                                    onQueryProducts("") // limpia sugerencias y cierra menú
                                 }
                             )
                         }
@@ -498,37 +489,27 @@ private fun AddItemDialog(
                     )
                 }
 
-                Box {
+                // Campo Categoría con ExposedDropdownMenuBox (auto expand con resultados)
+                val categoryHasResults = categoryText.isNotBlank() && categories.isNotEmpty()
+                ExposedDropdownMenuBox(expanded = categoryHasResults, onExpandedChange = { /* no-op */ }) {
                     OutlinedTextField(
                         value = categoryText,
                         onValueChange = {
                             categoryText = it
-                            categoryExpanded = it.isNotBlank()
+                            onQueryCategories(it)
                         },
                         label = { Text(stringResource(id = R.string.category_label)) },
-                        trailingIcon = {
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.clickable { categoryExpanded = !categoryExpanded }
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryHasResults) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
                         enabled = !isSubmitting
                     )
-                    val filteredCategories = categories.filter { option ->
-                        option.name.contains(categoryText, ignoreCase = true) && categoryText.isNotBlank()
-                    }
-                    DropdownMenu(
-                        expanded = categoryExpanded && filteredCategories.isNotEmpty(),
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        filteredCategories.forEach { category ->
+                    ExposedDropdownMenu(expanded = categoryHasResults, onDismissRequest = { /* no-op */ }) {
+                        categories.forEach { category ->
                             DropdownMenuItem(
                                 text = { Text(category.name) },
                                 onClick = {
                                     categoryText = category.name
-                                    categoryExpanded = false
+                                    onQueryCategories("") // limpia sugerencias y cierra menú
                                 }
                             )
                         }
@@ -747,12 +728,12 @@ private fun CombinedCategoriesCard(
                         }
                     }
                     if (index < items.lastIndex) {
-                        Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                     }
                 }
                 // Separador entre categorías dentro de la misma tarjeta
                 if (cIndex < sortedCategories.lastIndex) {
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }

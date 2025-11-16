@@ -215,14 +215,13 @@
     <string name="confirm_delete_item_message">¿Deseás eliminar este producto de la lista?</string>
     <string name="confirm_delete_list_message">¿Deseás eliminar la lista "%1$s"?</string>
     <string name="delete_action">Eliminar</string>
+    <string name="edit_product">Editar producto</string>
 
     <!-- Error when trying to finalize a shared list as a non-owner -->
     <string name="error_shared_list_finalize_not_allowed">
-        You are not allowed to finalize a list shared with you. / No tienes permitido finalizar una lista que fue compartida contigo.
+       No tienes permitido finalizar una lista que fue compartida contigo.
     </string>
 
-    <!-- Title for editing a product -->
-    <string name="edit_product">Editar producto</string>
 
     <!-- Friendly error when trying to delete a shared list as a non-owner -->
     <string name="shared_list_delete_not_allowed_title">No se puede eliminar</string>

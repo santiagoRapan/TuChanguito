@@ -231,7 +231,7 @@ private fun ActiveListSection(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Progreso de la compra", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(stringResource(R.string.purchase_progress_title), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(6.dp))
                         val animatedProgress by animateFloatAsState(
                             targetValue = progress.coerceIn(0f, 1f),
@@ -249,7 +249,12 @@ private fun ActiveListSection(
                         Spacer(Modifier.height(4.dp))
                         val percent = (progress * 100).toInt()
                         Text(
-                            text = "$purchasedCount de $totalCount comprados ($percent%)",
+                            text = stringResource(
+                                id = R.string.purchase_progress_fmt,
+                                purchasedCount,
+                                totalCount,
+                                percent
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

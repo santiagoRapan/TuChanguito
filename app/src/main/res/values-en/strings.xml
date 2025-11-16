@@ -208,4 +208,8 @@
     <string name="confirm_delete_list_message">Do you want to delete the list "%1$s"?</string>
     <string name="delete_action">Delete</string>
     <string name="edit_product">Edit product</string>
+
+    <string name="shared_list_delete_not_allowed_title">Not able to remove</string>
+    <string name="shared_list_delete_not_allowed">You cannot remove a list unless you are the owner. If you want to stop seeing it ask the owner to remove it</string>
+    <string name="accept">Accept</string>
 </resources>

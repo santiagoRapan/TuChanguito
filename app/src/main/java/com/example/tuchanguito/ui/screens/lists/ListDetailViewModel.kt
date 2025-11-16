@@ -3,6 +3,7 @@ package com.example.tuchanguito.ui.screens.lists
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.tuchanguito.R
 import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.data.network.model.ListItemDto
@@ -233,6 +234,20 @@ class ListDetailViewModel(
 
     fun finalizeList(options: ListFinalizeOptions) {
         viewModelScope.launch {
+            val currentList = _uiState.value.list
+
+            // Una lista sólo puede ser finalizada por su propietario: si no hay owner, asumimos que es compartida
+            val isOwner = currentList?.owner != null
+            if (!isOwner) {
+                // Seguridad extra: no llamamos a NINGÚN endpoint de finalización ni tocamos alacena
+                _events.emit(
+                    ListDetailEvent.ShowSnackbar(
+                        "You are not allowed to finalize a list shared with you. / No tienes permitido finalizar una lista que fue compartida contigo."
+                    )
+                )
+                return@launch
+            }
+
             _uiState.update { it.copy(isProcessing = true) }
             val result = runCatching {
                 val items = shoppingListsRepository.getItems(listId)
@@ -274,9 +289,8 @@ class ListDetailViewModel(
                     }
                 }
 
-                val summaryList = _uiState.value.list ?: shoppingListsRepository.getList(listId)
-                // Save the list and its items into local history so it can be opened later without calling the API
-                val itemsForSave = items // items is already fetched above
+                val summaryList = currentList ?: shoppingListsRepository.getList(listId)
+                val itemsForSave = items
                 historyRepository.save(summaryList.id, summaryList.name, itemsForSave)
                 if (summaryList.recurring) {
                     shoppingListsRepository.resetList(listId)

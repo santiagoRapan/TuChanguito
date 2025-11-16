@@ -56,7 +56,6 @@ import com.example.tuchanguito.data.model.Category
 import com.example.tuchanguito.data.model.Product
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
-import com.example.tuchanguito.ui.theme.ColorSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -328,8 +327,6 @@ private fun PantryItemRow(
             } else false
         }
     )
-    val cardColor = ColorSurface
-
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromStartToEnd = false,
@@ -367,7 +364,10 @@ private fun PantryItemRow(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = cardColor),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(

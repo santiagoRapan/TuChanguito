@@ -91,7 +91,6 @@ import com.example.tuchanguito.ui.screens.lists.ListFinalizeOptions
 import com.example.tuchanguito.ui.screens.lists.ShareUiState
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
-import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -385,9 +384,6 @@ fun ListItemCard(
             }
         }
     )
-    val isDark = MaterialTheme.colorScheme.background != Color.White
-    val cardColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else ColorSurface
-
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromStartToEnd = false,
@@ -426,7 +422,10 @@ fun ListItemCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            colors = CardDefaults.cardColors(containerColor = cardColor)
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
         ) {
             Row(
                 modifier = Modifier

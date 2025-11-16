@@ -68,7 +68,6 @@ import com.example.tuchanguito.data.network.model.CategoryDto
 import com.example.tuchanguito.data.network.model.ProductDto
 import com.example.tuchanguito.ui.theme.ColorAccent
 import com.example.tuchanguito.ui.theme.ColorPrimary
-import com.example.tuchanguito.ui.theme.ColorSurface
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -253,7 +252,6 @@ fun ProductsScreen() {
                 } else {
                     items(remoteProducts.size, key = { idx -> remoteProducts[idx].id }) { i ->
                         val p = remoteProducts[i]
-                        val cardColor = ColorSurface
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { target ->
                                 if (target == SwipeToDismissBoxValue.EndToStart) {
@@ -305,7 +303,6 @@ fun ProductsScreen() {
                                 product = p,
                                 editLabel = editLabel,
                                 deleteLabel = deleteLabel,
-                                cardColor = cardColor,
                                 onEdit = { editingProductId = p.id },
                                 onDelete = {
                                     // Don't delete immediately: ask for confirmation like in lists
@@ -458,7 +455,6 @@ private fun ProductCard(
     product: ProductDto,
     editLabel: String,
     deleteLabel: String,
-    cardColor: Color = Color.White,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -467,7 +463,10 @@ private fun ProductCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor, contentColor = MaterialTheme.colorScheme.onBackground)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
         Row(
             modifier = Modifier

@@ -8,7 +8,7 @@
     <string name="hide_password">Ocultar contraseña</string>
     <string name="remember_me">Recuérdame</string>
     <string name="forgot_password">¿Olvidaste tu contraseña?</string>
-    <string name="no_account_create">¿No tienes una cuenta? Regístrate.</string>
+    <string name="no_account_create">¿No tienes una cuenta?</string>
     <string name="home">Inicio</string>
     <string name="lists">Listas</string>
     <string name="pantry">Alacena</string>

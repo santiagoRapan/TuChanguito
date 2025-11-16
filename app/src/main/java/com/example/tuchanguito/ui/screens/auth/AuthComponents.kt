@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.example.tuchanguito.R
 import com.example.tuchanguito.ui.theme.ColorSecondary
 import com.example.tuchanguito.ui.theme.PrimaryTextBlue
-import com.example.tuchanguito.ui.theme.ScreenBackgroundGrey
 
 @Composable
 fun AuthScreenContainer(
@@ -45,7 +44,7 @@ fun AuthScreenContainer(
 
     Scaffold(
         modifier = modifier,
-        containerColor = ScreenBackgroundGrey,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = {
             snackbarHostState?.let { SnackbarHost(it) }
         }

@@ -120,7 +120,7 @@
 
     <!-- Additional app strings -->
     <string name="products_title">Productos</string>
-    <string name="no_products">No hay productos</string>
+    <string name="no_products">No hay productos. Presiona + para crear uno</string>
     <string name="create_error">No se pudo crear</string>
 
     <string name="processing">Procesando…</string>
@@ -197,6 +197,7 @@
 
     <!-- ListDetailScreen strings -->
     <string name="price_each_fmt">$%.2f c/u</string>
+    <string name="list_empty_message">Lista vacía. Presiona el botón + para agregar productos</string>
     <string name="decrement_desc">Disminuir</string>
     <string name="increment_desc">Incrementar</string>
     <string name="delete_desc">Eliminar</string>

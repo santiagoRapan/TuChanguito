@@ -118,7 +118,7 @@
 
     <!-- Additional app strings -->
     <string name="products_title">Products</string>
-    <string name="no_products">No products</string>
+    <string name="no_products">No products. Press + to create one</string>
     <string name="create_error">Couldn\'t create</string>
 
     <string name="processing">Processing…</string>
@@ -195,6 +195,7 @@
 
     <!-- New strings -->
     <string name="price_each_fmt">$%.2f each</string>
+    <string name="list_empty_message">Empty list. Press the + button to add products</string>
     <string name="decrement_desc">Decrease</string>
     <string name="increment_desc">Increase</string>
     <string name="delete_desc">Delete</string>

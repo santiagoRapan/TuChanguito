@@ -586,7 +586,6 @@ private fun ProductCard(
     }
 }
 
-// Remove unused helpers and keep only the image file creator
 private fun createTempImageFile(context: android.content.Context): File {
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: context.filesDir
     return File.createTempFile("PROD_" + System.currentTimeMillis(), ".jpg", dir)
@@ -594,7 +593,6 @@ private fun createTempImageFile(context: android.content.Context): File {
 
 private const val DEFAULT_LOW_STOCK_THRESHOLD = 2
 
-// Json helpers on JsonElement?
 private fun JsonElement?.doubleValue(key: String, default: Double = 0.0): Double = try {
     val v = this?.jsonObject?.get(key)?.jsonPrimitive ?: return default
     v.doubleOrNull ?: v.contentOrNull?.toDoubleOrNull() ?: default

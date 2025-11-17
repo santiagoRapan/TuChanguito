@@ -171,7 +171,6 @@ fun ProfileScreen(onChangePassword: () -> Unit) {
                     })
                 }
 
-                // Moneda field removed per request
                 Spacer(Modifier.height(8.dp))
                 val contextText = stringResource(id = R.string.logout_title)
                 Button(onClick = { showLogoutDialog = true }) { Text(contextText) }

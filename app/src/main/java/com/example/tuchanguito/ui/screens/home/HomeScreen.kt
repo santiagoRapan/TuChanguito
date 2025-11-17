@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -223,42 +224,26 @@ private fun ActiveListSection(
             Spacer(Modifier.height(12.dp))
 
             if (totalCount > 0) {
-                // Contenedor con esquinas redondeadas
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
+                val animatedProgress by animateFloatAsState(
+                    targetValue = progress.coerceIn(0f, 1f),
+                    animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+                    label = "homeActiveProgress"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.35f))
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(stringResource(R.string.purchase_progress_title), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(6.dp))
-                        val animatedProgress by animateFloatAsState(
-                            targetValue = progress.coerceIn(0f, 1f),
-                            animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
-                            label = "homeActiveProgress"
-                        )
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        val percent = (progress * 100).toInt()
-                        Text(
-                            text = stringResource(
-                                id = R.string.purchase_progress_fmt,
-                                purchasedCount,
-                                totalCount,
-                                percent
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Transparent
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
             }
